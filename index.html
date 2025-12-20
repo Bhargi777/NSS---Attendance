@@ -44,7 +44,7 @@
         .input-group { margin-bottom: 20px; }
         label { display: block; font-size: 0.85rem; font-weight: 600; color: #718096; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        input[type="date"], input[type="text"] {
+        input[type="text"] {
             width: 100%;
             padding: 15px;
             border: 2px solid #e2e8f0;
@@ -52,8 +52,6 @@
             font-size: 1.1rem;
             transition: border 0.2s;
             background: #fcfcfc;
-        }
-        input[type="text"] {
             font-family: 'Courier New', monospace;
             font-weight: bold;
             letter-spacing: 1px;
@@ -72,10 +70,52 @@
             transition: transform 0.1s;
         }
         .btn:active { transform: scale(0.98); }
-        
         .btn-primary { background: var(--primary); color: white; margin-bottom: 10px; }
         .btn-outline { background: transparent; border: 2px solid #e2e8f0; color: #718096; }
-        .btn-outline:hover { border-color: #cbd5e0; color: #4a5568; }
+        
+        /* Scanner */
+        #scanner-container {
+            margin-bottom: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none;
+            background: #000;
+        }
+        #scanner-container.active { display: block; }
+        #reader { width: 100%; }
+
+        /* Table Styling */
+        .table-container {
+            margin-top: 20px;
+            border-top: 2px solid #f0f0f0;
+            padding-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+        th {
+            text-align: left;
+            color: #718096;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            padding-bottom: 10px;
+        }
+        td {
+            padding: 12px 0;
+            border-bottom: 1px solid #f7fafc;
+        }
+        .roll-col {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: var(--text);
+        }
+        .time-col {
+            text-align: right;
+            color: #718096;
+            font-size: 0.85rem;
+        }
 
         /* Alerts */
         .alert {
@@ -86,12 +126,9 @@
             text-align: center;
             display: none;
         }
-        .alert.success { background: #c6f6d5; color: #22543d; display: block; }
-        .alert.error { background: #fed7d7; color: #822727; display: block; }
-        .alert.warning { background: #feebc8; color: #744210; display: block; }
-
-        /* Utility */
-        .hidden { display: none; }
+        .alert.success { background: #c6f6d5; color: #22543d; }
+        .alert.error { background: #fed7d7; color: #822727; }
+        .alert.warning { background: #feebc8; color: #744210; }
     </style>
 </head>
 <body>
@@ -99,144 +136,186 @@
     <div class="container">
         <div class="header">
             <h1>NSS Attendance</h1>
-            <p style="font-size: 0.9rem; color: #718096; margin-top: 5px;">Manual Entry System</p>
         </div>
 
         <div class="card">
             <div id="alertBox" class="alert"></div>
 
+            <div id="scanner-container">
+                <div id="reader"></div>
+            </div>
+
+            <button id="scanBtn" class="btn btn-outline" style="margin-bottom: 20px;">📷 Open Camera</button>
+            <button id="stopScanBtn" class="btn btn-outline" style="margin-bottom: 20px; display: none;">🛑 Stop Camera</button>
+
             <div class="input-group">
                 <label>Student Roll Number</label>
-                <input type="text" id="rollInput" placeholder="Type roll number here..." autocomplete="off">
-                <small style="color: #718096; font-size: 0.8rem; margin-top: 5px; display: block;">Type roll number manually or use connected barcode scanner</small>
+                <input type="text" id="rollInput" placeholder="Type or Scan..." autocomplete="off">
             </div>
 
             <button id="saveBtn" class="btn btn-primary" style="margin-bottom: 15px;">Save Roll Number</button>
             <button id="exportBtn" class="btn btn-primary">Export CSV</button>
+
+            <div class="table-container">
+                <label>Scanned List (<span id="count">0</span>)</label>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Roll Number</th>
+                            <th style="text-align: right;">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTableBody">
+                        </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <script>
-        // Local storage key
+        // --- Variables ---
         const STORAGE_KEY = 'nss_attendance';
-
-        // Elements
         const rollInput = document.getElementById('rollInput');
         const saveBtn = document.getElementById('saveBtn');
         const exportBtn = document.getElementById('exportBtn');
+        const scanBtn = document.getElementById('scanBtn');
+        const stopScanBtn = document.getElementById('stopScanBtn');
         const alertBox = document.getElementById('alertBox');
+        const scannerContainer = document.getElementById('scanner-container');
+        const tableBody = document.getElementById('attendanceTableBody');
+        const countLabel = document.getElementById('count');
 
+        let html5QrCode = null;
         let todayAttendance = new Set();
 
-        // Local storage functions
+        // --- Helper: Update Table ---
+        function addRowToTable(roll, timestamp) {
+            const row = document.createElement('tr');
+            const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            row.innerHTML = `
+                <td class="roll-col">${roll}</td>
+                <td class="time-col">${timeStr}</td>
+            `;
+            
+            // Prepend to show latest on top
+            tableBody.insertBefore(row, tableBody.firstChild);
+            countLabel.textContent = todayAttendance.size;
+        }
+
+        function notify(msg, type = 'success') {
+            alertBox.textContent = msg;
+            alertBox.className = `alert ${type}`;
+            alertBox.style.display = 'block';
+            setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
+        }
+
+        // --- Scanner Logic ---
+        scanBtn.addEventListener('click', async () => {
+            if (typeof Html5Qrcode === "undefined") {
+                notify("Scanner library loading...", "warning");
+                return;
+            }
+            try {
+                if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+                scannerContainer.classList.add('active');
+                scanBtn.style.display = 'none';
+                stopScanBtn.style.display = 'block';
+                
+                await html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => {
+                        handleRollNumber(decodedText, true);
+                    },
+                    (errorMessage) => {}
+                );
+            } catch (err) {
+                notify("Camera error: " + err, "error");
+                stopScanner();
+            }
+        });
+
+        stopScanBtn.addEventListener('click', stopScanner);
+
+        function stopScanner() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    scannerContainer.classList.remove('active');
+                    scanBtn.style.display = 'block';
+                    stopScanBtn.style.display = 'none';
+                    html5QrCode.clear();
+                });
+            }
+        }
+
+        // --- Core Logic ---
         function getStoredData() {
             const data = localStorage.getItem(STORAGE_KEY);
             return data ? JSON.parse(data) : [];
         }
 
-        function saveToStorage(record) {
-            const data = getStoredData();
-            data.push(record);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        }
-
-        // Helper: Alerts
-        function notify(msg, type = 'success') {
-            alertBox.textContent = msg;
-            alertBox.className = `alert ${type}`;
-            setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
-        }
-
-        // 1. Input Handling
-        function handleRollNumber(text) {
+        function handleRollNumber(text, isScanned = false) {
             const cleanText = text.trim().toUpperCase().replace(/[^A-Z0-9.]/g, '');
             
-            // Auto-check for duplicates
-            if (todayAttendance.has(cleanText)) {
-                notify("⚠️ Already marked today!", "warning");
-                return;
-            }
-
-            // Auto-save locally
-            const roll = cleanText;
-            const date = new Date().toISOString().split('T')[0];
-            const timestamp = Date.now();
-
-            if (!roll) { 
-                notify("Enter a roll number", "error"); 
+            if (!cleanText) {
+                if(!isScanned) notify("Enter a roll number", "error"); 
                 return; 
             }
 
-            const record = { roll, date, timestamp };
-            saveToStorage(record);
-            todayAttendance.add(roll);
+            if (!isScanned) rollInput.value = cleanText;
 
-            notify("✅ Saved: " + roll, "success");
-        }
-
-        // Auto-save on enter
-        rollInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const roll = rollInput.value.trim().toUpperCase();
-                const date = new Date().toISOString().split('T')[0];
-                const timestamp = Date.now();
-
-                if (!roll) { notify("Enter a roll number", "error"); return; }
-
-                // Check duplicate
-                if (todayAttendance.has(roll)) {
-                    notify("⚠️ Already marked today!", "warning");
-                    return;
-                }
-
-                const record = { roll, date, timestamp };
-                saveToStorage(record);
-                todayAttendance.add(roll);
-
-                notify("✅ Saved: " + roll, "success");
-                rollInput.value = ''; // Clear input
-                rollInput.focus();
-            }
-        });
-
-        // Manual save button
-        saveBtn.addEventListener('click', () => {
-            const roll = rollInput.value.trim().toUpperCase();
-            const date = new Date().toISOString().split('T')[0];
-            const timestamp = Date.now();
-
-            if (!roll) { notify("Enter a roll number", "error"); return; }
-
-            // Check duplicate
-            if (todayAttendance.has(roll)) {
-                notify("⚠️ Already marked today!", "warning");
+            // Check Duplicate
+            if (todayAttendance.has(cleanText)) {
+                notify("⚠️ " + cleanText + " already marked!", "warning");
+                if(!isScanned) rollInput.value = '';
                 return;
             }
 
-            const record = { roll, date, timestamp };
-            saveToStorage(record);
-            todayAttendance.add(roll);
+            // Save Data
+            const timestamp = Date.now();
+            const record = { 
+                roll: cleanText, 
+                date: new Date().toISOString().split('T')[0], 
+                timestamp: timestamp 
+            };
+            
+            const data = getStoredData();
+            data.push(record);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            
+            todayAttendance.add(cleanText);
 
-            notify("✅ Saved: " + roll, "success");
-            rollInput.value = ''; // Clear input
-            rollInput.focus();
+            // Update UI
+            addRowToTable(cleanText, timestamp);
+            notify("✅ Added: " + cleanText, "success");
+            
+            if (!isScanned) {
+                rollInput.value = '';
+                rollInput.focus();
+            } else {
+                rollInput.value = cleanText;
+            }
+        }
+
+        // --- Event Listeners ---
+        saveBtn.addEventListener('click', () => handleRollNumber(rollInput.value));
+        
+        rollInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleRollNumber(rollInput.value);
         });
 
-        // Export CSV
         exportBtn.addEventListener('click', () => {
             const data = getStoredData();
             if (data.length === 0) {
                 notify("No data to export", "warning");
                 return;
             }
+            const csvContent = "Roll Number,Date,Time\n" + 
+                data.map(r => `${r.roll},${r.date},${new Date(r.timestamp).toLocaleTimeString()}`).join("\n");
 
-            // Create CSV content
-            const csvHeader = "Roll Number,Date,Timestamp\n";
-            const csvRows = data.map(record => `${record.roll},${record.date},${new Date(record.timestamp).toLocaleString()}`).join("\n");
-            const csvContent = csvHeader + csvRows;
-
-            // Download CSV
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -245,46 +324,41 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            notify("CSV exported!", "success");
         });
 
-        // Load today's data
+        // Background Keyboard Scanner
+        let kbBuffer = '';
+        let kbTimer;
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT') return;
+            if (e.key === 'Enter') {
+                if (kbBuffer.length > 3) handleRollNumber(kbBuffer, true);
+                kbBuffer = '';
+            } else {
+                kbBuffer += e.key;
+                clearTimeout(kbTimer);
+                kbTimer = setTimeout(() => kbBuffer = '', 200);
+            }
+        });
+
+        // --- Initialization ---
         function loadTodayData() {
             const today = new Date().toISOString().split('T')[0];
             const data = getStoredData();
             todayAttendance.clear();
-            data.forEach(record => {
-                if (record.date === today) {
-                    todayAttendance.add(record.roll);
-                }
+            tableBody.innerHTML = ''; // Clear table before loading
+
+            // Filter for today only
+            const todaysRecords = data.filter(record => record.date === today);
+            
+            todaysRecords.forEach(record => {
+                todayAttendance.add(record.roll);
+                addRowToTable(record.roll, record.timestamp);
             });
         }
 
-        // Keyboard Scanner Support (for external barcode scanners)
-        let kbBuffer = '';
-        let kbTimer;
-        document.addEventListener('keydown', (e) => {
-            // Don't capture if typing in input field
-            if (e.target.tagName === 'INPUT' && e.target.id === 'rollInput') return;
-            
-            if (e.key === 'Enter') {
-                if (kbBuffer.length > 2) { // Minimum length for roll number
-                    handleRollNumber(kbBuffer);
-                }
-                kbBuffer = '';
-            } else if (e.key.length === 1) { // Only add printable characters
-                kbBuffer += e.key;
-                clearTimeout(kbTimer);
-                kbTimer = setTimeout(() => kbBuffer = '', 200); // Clear buffer after 200ms of inactivity
-            }
-        });
-
-        // Initial load and focus
         loadTodayData();
         rollInput.focus();
-
     </script>
 </body>
 </html>
