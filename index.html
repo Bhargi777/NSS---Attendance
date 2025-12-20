@@ -125,6 +125,7 @@
             </div>
 
             <button id="scanBtn" class="btn btn-outline" style="margin-bottom: 15px;">📷 Open Camera</button>
+            <button id="saveBtn" class="btn btn-primary" style="margin-bottom: 15px;">Save Roll Number</button>
             <button id="exportBtn" class="btn btn-primary">Export CSV</button>
         </div>
     </div>
@@ -135,8 +136,19 @@
         // Local storage key
         const STORAGE_KEY = 'nss_attendance';
 
+        // Elements
+        const rollInput = document.getElementById('rollInput');
+        const scanBtn = document.getElementById('scanBtn');
+        const stopScanBtn = document.getElementById('stopScanBtn');
+        const saveBtn = document.getElementById('saveBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const alertBox = document.getElementById('alertBox');
+        const scannerContainer = document.getElementById('scanner-container');
+
         let html5QrCode = null;
         let todayAttendance = new Set();
+
+        // Local storage functions
         function getStoredData() {
             const data = localStorage.getItem(STORAGE_KEY);
             return data ? JSON.parse(data) : [];
@@ -186,16 +198,6 @@
                 scanBtn.style.display = 'block';
             }
         }
-
-        // Elements
-        const rollInput = document.getElementById('rollInput');
-        const scanBtn = document.getElementById('scanBtn');
-        const stopScanBtn = document.getElementById('stopScanBtn');
-        const exportBtn = document.getElementById('exportBtn');
-        const alertBox = document.getElementById('alertBox');
-        const scannerContainer = document.getElementById('scanner-container');
-
-        // Helper: Alerts
         function notify(msg, type = 'success') {
             alertBox.textContent = msg;
             alertBox.className = `alert ${type}`;
@@ -252,6 +254,29 @@
                 rollInput.value = ''; // Clear input
                 rollInput.focus();
             }
+        });
+
+        // Manual save button
+        saveBtn.addEventListener('click', () => {
+            const roll = rollInput.value.trim().toUpperCase();
+            const date = new Date().toISOString().split('T')[0];
+            const timestamp = Date.now();
+
+            if (!roll) { notify("Enter a roll number", "error"); return; }
+
+            // Check duplicate
+            if (todayAttendance.has(roll)) {
+                notify("⚠️ Already marked today!", "warning");
+                return;
+            }
+
+            const record = { roll, date, timestamp };
+            saveToStorage(record);
+            todayAttendance.add(roll);
+
+            notify("✅ Saved: " + roll, "success");
+            rollInput.value = ''; // Clear input
+            rollInput.focus();
         });
 
         // Export CSV
