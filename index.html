@@ -77,6 +77,16 @@
         .btn-outline { background: transparent; border: 2px solid #e2e8f0; color: #718096; }
         .btn-outline:hover { border-color: #cbd5e0; color: #4a5568; }
 
+        /* Scanner */
+        #scanner-container {
+            margin-bottom: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            display: none; /* Hidden by default */
+            background: #000;
+        }
+        #scanner-container.active { display: block; }
+
         /* Alerts */
         .alert {
             padding: 12px;
@@ -104,34 +114,86 @@
         <div class="card">
             <div id="alertBox" class="alert"></div>
 
+            <div id="scanner-container">
+                <div id="reader"></div>
+                <button class="btn btn-outline" id="stopScanBtn" style="border-top: none; border-radius: 0 0 8px 8px;">Stop Camera</button>
+            </div>
+
             <div class="input-group">
                 <label>Student Roll Number</label>
-                <input type="text" id="rollInput" placeholder="Type roll number..." autocomplete="off">
+                <input type="text" id="rollInput" placeholder="Scan or Type here..." autocomplete="off">
             </div>
+
+            <button id="scanBtn" class="btn btn-outline" style="margin-bottom: 15px;">📷 Open Camera</button>
+            <button id="exportBtn" class="btn btn-primary">Export CSV</button>
         </div>
     </div>
 
 
+    <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, getDocs, orderBy, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        // Local storage key
+        const STORAGE_KEY = 'nss_attendance';
 
-        // Firebase Config
-        const firebaseConfig = {
-            apiKey: "AIzaSyA50Rhc0tDKKfYYWBFRcrLYNFdWxO8jCf8",
-            authDomain: "attendance-nss-44e73.firebaseapp.com",
-            projectId: "attendance-nss-44e73",
-            storageBucket: "attendance-nss-44e73.firebasestorage.app",
-            messagingSenderId: "666526513680",
-            appId: "1:666526513680:web:4b206fef5f97a20411a895"
-        };
+        let html5QrCode = null;
+        let todayAttendance = new Set();
+        function getStoredData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        function saveToStorage(record) {
+            const data = getStoredData();
+            data.push(record);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+
+        // 1. Scanner Logic
+        scanBtn.addEventListener('click', async () => {
+            if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+            
+            try {
+                scannerContainer.classList.add('active');
+                scanBtn.style.display = 'none'; // Hide "Open Camera" button
+                
+                await html5QrCode.start(
+                    { facingMode: "environment" },
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText) => {
+                        // Success
+                        handleRollNumber(decodedText);
+                        stopScanner();
+                        notify("Scanned!", "success");
+                    },
+                    () => {}
+                );
+            } catch (err) {
+                notify("Camera error: " + err, "error");
+                stopScanner();
+            }
+        });
+
+        stopScanBtn.addEventListener('click', stopScanner);
+
+        function stopScanner() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    scannerContainer.classList.remove('active');
+                    scanBtn.style.display = 'block';
+                });
+            } else {
+                scannerContainer.classList.remove('active');
+                scanBtn.style.display = 'block';
+            }
+        }
 
         // Elements
         const rollInput = document.getElementById('rollInput');
+        const scanBtn = document.getElementById('scanBtn');
+        const stopScanBtn = document.getElementById('stopScanBtn');
+        const exportBtn = document.getElementById('exportBtn');
         const alertBox = document.getElementById('alertBox');
+        const scannerContainer = document.getElementById('scanner-container');
 
         // Helper: Alerts
         function notify(msg, type = 'success') {
@@ -141,68 +203,98 @@
         }
 
         // 2. Input Handling
-        async function handleRollNumber(text) {
+        function handleRollNumber(text) {
             const cleanText = text.trim().toUpperCase().replace(/[^A-Z0-9.]/g, '');
             rollInput.value = cleanText;
             
-            // Auto-save
+            // Auto-check for duplicates visually
+            if (todayAttendance.has(cleanText)) {
+                notify("⚠️ Already marked today!", "warning");
+                return;
+            }
+
+            // Auto-save locally
             const roll = cleanText;
             const date = new Date().toISOString().split('T')[0];
+            const timestamp = Date.now();
 
             if (!roll) { notify("Enter a roll number", "error"); return; }
 
-            rollInput.disabled = true;
-            rollInput.value = "...";
+            const record = { roll, date, timestamp };
+            saveToStorage(record);
+            todayAttendance.add(roll);
 
-            try {
-                await addDoc(collection(db, "attendance"), {
-                    roll: roll,
-                    date: date,
-                    submitted_at: serverTimestamp()
-                });
+            notify("✅ Saved: " + roll, "success");
+            rollInput.value = ''; // Clear input
+            rollInput.focus();
+        }
+
+        // Auto-save on enter
+        rollInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const roll = rollInput.value.trim().toUpperCase();
+                const date = new Date().toISOString().split('T')[0];
+                const timestamp = Date.now();
+
+                if (!roll) { notify("Enter a roll number", "error"); return; }
+
+                // Check duplicate
+                if (todayAttendance.has(roll)) {
+                    notify("⚠️ Already marked today!", "warning");
+                    return;
+                }
+
+                const record = { roll, date, timestamp };
+                saveToStorage(record);
+                todayAttendance.add(roll);
 
                 notify("✅ Saved: " + roll, "success");
                 rollInput.value = ''; // Clear input
                 rollInput.focus();
-            } catch (error) {
-                console.error(error);
-                notify("Save failed. Check internet.", "error");
-            } finally {
-                rollInput.disabled = false;
-            }
-        }
-
-        // Auto-save on enter
-        rollInput.addEventListener('keydown', async (e) => {
-            if (e.key === 'Enter') {
-                const roll = rollInput.value.trim().toUpperCase();
-                const date = new Date().toISOString().split('T')[0];
-
-                if (!roll) { notify("Enter a roll number", "error"); return; }
-
-                rollInput.disabled = true;
-                rollInput.value = "...";
-
-                try {
-                    await addDoc(collection(db, "attendance"), {
-                        roll: roll,
-                        date: date,
-                        submitted_at: serverTimestamp()
-                    });
-
-                    notify("✅ Saved: " + roll, "success");
-                    rollInput.value = ''; // Clear input
-                    rollInput.focus();
-                } catch (error) {
-                    console.error(error);
-                    notify("Save failed. Check internet.", "error");
-                } finally {
-                    rollInput.disabled = false;
-                }
             }
         });
 
-        // Initial focus
+        // Export CSV
+        exportBtn.addEventListener('click', () => {
+            const data = getStoredData();
+            if (data.length === 0) {
+                notify("No data to export", "warning");
+                return;
+            }
+
+            // Create CSV content
+            const csvHeader = "Roll Number,Date,Timestamp\n";
+            const csvRows = data.map(record => `${record.roll},${record.date},${new Date(record.timestamp).toLocaleString()}`).join("\n");
+            const csvContent = csvHeader + csvRows;
+
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `attendance_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            notify("CSV exported!", "success");
+        });
+
+        // Load today's data
+        function loadTodayData() {
+            const today = new Date().toISOString().split('T')[0];
+            const data = getStoredData();
+            todayAttendance.clear();
+            data.forEach(record => {
+                if (record.date === today) {
+                    todayAttendance.add(record.roll);
+                }
+            });
+        }
+
+        // Initial load and focus
+        loadTodayData();
         rollInput.focus();
 
     </script>
