@@ -7,8 +7,12 @@
     <style>
         :root {
             --primary: #667eea;
-            --bg: #f4f6f8;
-            --text: #2d3748;
+            --bg: #000000;          /* Black Background */
+            --card-bg: #1a1a1a;     /* Dark Card */
+            --text: #ffffff;        /* White Text */
+            --text-secondary: #a0aec0;
+            --border: #333333;
+            --input-bg: #2d2d2d;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
@@ -30,33 +34,36 @@
             text-align: center;
             margin-bottom: 30px;
         }
-        .header h1 { font-size: 1.5rem; color: var(--primary); letter-spacing: -0.5px; }
+        .header h1 { font-size: 1.8rem; color: var(--primary); letter-spacing: -0.5px; margin-bottom: 5px;}
+        .header p { color: var(--text-secondary); font-size: 0.9rem; }
         
         .card {
-            background: white;
-            border-radius: 12px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
             padding: 25px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
             margin-bottom: 20px;
         }
 
-        /* Minimal Input Styling */
+        /* Input Styling */
         .input-group { margin-bottom: 20px; }
-        label { display: block; font-size: 0.85rem; font-weight: 600; color: #718096; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
         
         input[type="text"] {
             width: 100%;
             padding: 15px;
-            border: 2px solid #e2e8f0;
+            border: 2px solid var(--border);
             border-radius: 8px;
             font-size: 1.1rem;
-            transition: border 0.2s;
-            background: #fcfcfc;
+            transition: all 0.2s;
+            background: var(--input-bg);
+            color: white;
             font-family: 'Courier New', monospace;
             font-weight: bold;
             letter-spacing: 1px;
         }
-        input:focus { outline: none; border-color: var(--primary); background: white; }
+        input:focus { outline: none; border-color: var(--primary); background: #333; }
 
         /* Buttons */
         .btn {
@@ -67,11 +74,20 @@
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.1s;
+            transition: transform 0.1s, background 0.2s;
+            margin-bottom: 15px;
         }
         .btn:active { transform: scale(0.98); }
-        .btn-primary { background: var(--primary); color: white; margin-bottom: 10px; }
-        .btn-outline { background: transparent; border: 2px solid #e2e8f0; color: #718096; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #5a67d8; }
+        
+        .btn-outline { 
+            background: transparent; 
+            border: 2px solid var(--border); 
+            color: var(--text-secondary); 
+            margin-bottom: 20px;
+        }
+        .btn-outline:hover { border-color: var(--text-secondary); color: white; }
         
         /* Scanner */
         #scanner-container {
@@ -79,16 +95,23 @@
             border-radius: 8px;
             overflow: hidden;
             display: none;
-            background: #000;
+            background: black;
+            border: 2px solid var(--border);
         }
         #scanner-container.active { display: block; }
         #reader { width: 100%; }
 
         /* Table Styling */
         .table-container {
-            margin-top: 20px;
-            border-top: 2px solid #f0f0f0;
+            margin-top: 25px;
+            border-top: 1px solid var(--border);
             padding-top: 20px;
+        }
+        .table-header-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            display: block;
         }
         table {
             width: 100%;
@@ -97,214 +120,41 @@
         }
         th {
             text-align: left;
-            color: #718096;
-            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
             text-transform: uppercase;
-            padding-bottom: 10px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
         }
         td {
-            padding: 12px 0;
-            border-bottom: 1px solid #f7fafc;
+            padding: 14px 0;
+            border-bottom: 1px solid #333;
+            color: var(--text);
         }
         .roll-col {
             font-family: 'Courier New', monospace;
             font-weight: bold;
-            color: var(--text);
+            color: var(--primary);
         }
         .time-col {
             text-align: right;
-            color: #718096;
+            color: var(--text-secondary);
             font-size: 0.85rem;
         }
 
         /* Alerts */
         .alert {
             padding: 12px;
-            border-radius: 6px;
+            border-radius: 8px;
             margin-bottom: 20px;
             font-size: 0.9rem;
             text-align: center;
             display: none;
-        }
-        .alert.success { background: #c6f6d5; color: #22543d; }
-        .alert.error { background: #fed7d7; color: #822727; }
-        .alert.warning { background: #feebc8; color: #744210; }
-    </style>
-</head>
-<body>
-
-    <div class="container">
-        <div class="header">
-            <h1>NSS Attendance</h1>
-        </div>
-
-        <div class="card">
-            <div id="alertBox" class="alert"></div>
-
-            <div id="scanner-container">
-                <div id="reader"></div>
-            </div>
-
-            <button id="scanBtn" class="btn btn-outline" style="margin-bottom: 20px;">📷 Open Camera</button>
-            <button id="stopScanBtn" class="btn btn-outline" style="margin-bottom: 20px; display: none;">🛑 Stop Camera</button>
-
-            <div class="input-group">
-                <label>Student Roll Number</label>
-                <input type="text" id="rollInput" placeholder="Type or Scan..." autocomplete="off">
-            </div>
-
-            <button id="saveBtn" class="btn btn-primary" style="margin-bottom: 15px;">Save Roll Number</button>
-            <button id="exportBtn" class="btn btn-primary">Export CSV</button>
-
-            <div class="table-container">
-                <label>Scanned List (<span id="count">0</span>)</label>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Roll Number</th>
-                            <th style="text-align: right;">Time</th>
-                        </tr>
-                    </thead>
-                    <tbody id="attendanceTableBody">
-                        </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-
-   <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSS Attendance</title>
-    <style>
-        :root {
-            --primary: #667eea;
-            --bg: #f4f6f8;
-            --text: #2d3748;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 600px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .header h1 { font-size: 1.5rem; color: var(--primary); letter-spacing: -0.5px; }
-        
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-
-        /* Minimal Input Styling */
-        .input-group { margin-bottom: 20px; }
-        label { display: block; font-size: 0.85rem; font-weight: 600; color: #718096; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        
-        input[type="text"] {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            transition: border 0.2s;
-            background: #fcfcfc;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            letter-spacing: 1px;
-        }
-        input:focus { outline: none; border-color: var(--primary); background: white; }
-
-        /* Buttons */
-        .btn {
-            width: 100%;
-            padding: 15px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
             font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.1s;
         }
-        .btn:active { transform: scale(0.98); }
-        .btn-primary { background: var(--primary); color: white; margin-bottom: 10px; }
-        .btn-outline { background: transparent; border: 2px solid #e2e8f0; color: #718096; }
-        
-        /* Scanner */
-        #scanner-container {
-            margin-bottom: 20px;
-            border-radius: 8px;
-            overflow: hidden;
-            display: none;
-            background: #000;
-        }
-        #scanner-container.active { display: block; }
-        #reader { width: 100%; }
-
-        /* Table Styling */
-        .table-container {
-            margin-top: 20px;
-            border-top: 2px solid #f0f0f0;
-            padding-top: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95rem;
-        }
-        th {
-            text-align: left;
-            color: #718096;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            padding-bottom: 10px;
-        }
-        td {
-            padding: 12px 0;
-            border-bottom: 1px solid #f7fafc;
-        }
-        .roll-col {
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            color: var(--text);
-        }
-        .time-col {
-            text-align: right;
-            color: #718096;
-            font-size: 0.85rem;
-        }
-
-        /* Alerts */
-        .alert {
-            padding: 12px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            text-align: center;
-            display: none;
-        }
-        .alert.success { background: #c6f6d5; color: #22543d; }
-        .alert.error { background: #fed7d7; color: #822727; }
-        .alert.warning { background: #feebc8; color: #744210; }
+        .alert.success { background: #2f855a; color: white; }
+        .alert.error { background: #c53030; color: white; }
+        .alert.warning { background: #b7791f; color: white; }
     </style>
 </head>
 <body>
@@ -312,6 +162,7 @@
     <div class="container">
         <div class="header">
             <h1>NSS Attendance</h1>
+            <p>Scan Barcode or Enter Roll Number</p>
         </div>
 
         <div class="card">
@@ -321,19 +172,19 @@
                 <div id="reader"></div>
             </div>
 
-            <button id="scanBtn" class="btn btn-outline" style="margin-bottom: 20px;">📷 Open Camera</button>
-            <button id="stopScanBtn" class="btn btn-outline" style="margin-bottom: 20px; display: none;">🛑 Stop Camera</button>
+            <button id="scanBtn" class="btn btn-outline">📷 Open Barcode Scanner</button>
+            <button id="stopScanBtn" class="btn btn-outline" style="display: none;">🛑 Stop Camera</button>
 
             <div class="input-group">
-                <label>Student Roll Number</label>
-                <input type="text" id="rollInput" placeholder="Type or Scan..." autocomplete="off">
+                <label>Roll Number</label>
+                <input type="text" id="rollInput" placeholder="Scan or Type..." autocomplete="off">
             </div>
 
-            <button id="saveBtn" class="btn btn-primary" style="margin-bottom: 15px;">Save Roll Number</button>
-            <button id="exportBtn" class="btn btn-primary">Export CSV</button>
+            <button id="saveBtn" class="btn btn-primary">Save Roll Number</button>
+            <button id="exportBtn" class="btn btn-primary" style="background-color: #2d3748;">Export CSV</button>
 
             <div class="table-container">
-                <label>Scanned List (<span id="count">0</span>)</label>
+                <span class="table-header-label">Scanned List (<span id="count">0</span>)</span>
                 <table>
                     <thead>
                         <tr>
@@ -352,7 +203,7 @@
 
     <script>
         // --- Variables ---
-        const STORAGE_KEY = 'nss_attendance';
+        const STORAGE_KEY = 'nss_attendance_dark';
         const rollInput = document.getElementById('rollInput');
         const saveBtn = document.getElementById('saveBtn');
         const exportBtn = document.getElementById('exportBtn');
@@ -376,7 +227,6 @@
                 <td class="time-col">${timeStr}</td>
             `;
             
-            // Prepend to show latest on top
             tableBody.insertBefore(row, tableBody.firstChild);
             countLabel.textContent = todayAttendance.size;
         }
@@ -385,34 +235,75 @@
             alertBox.textContent = msg;
             alertBox.className = `alert ${type}`;
             alertBox.style.display = 'block';
-            setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
+            setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
         }
 
-        // --- Scanner Logic ---
+        // --- Barcode Scanner Logic ---
         scanBtn.addEventListener('click', async () => {
+            // HTTPS Check
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                notify("⚠️ iOS requires HTTPS! Use GitHub Pages.", "error");
+                return;
+            }
+
             if (typeof Html5Qrcode === "undefined") {
                 notify("Scanner library loading...", "warning");
                 return;
             }
+
             try {
-                if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
+                // Initialize with specific Barcode Formats
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader", { 
+                        formatsToSupport: [ 
+                            Html5QrcodeSupportedFormats.CODE_128,
+                            Html5QrcodeSupportedFormats.CODE_39,
+                            Html5QrcodeSupportedFormats.EAN_13,
+                            Html5QrcodeSupportedFormats.EAN_8,
+                            Html5QrcodeSupportedFormats.UPC_A,
+                            Html5QrcodeSupportedFormats.UPC_E,
+                            Html5QrcodeSupportedFormats.CODABAR
+                        ]
+                    }); 
+                }
+                
                 scannerContainer.classList.add('active');
                 scanBtn.style.display = 'none';
                 stopScanBtn.style.display = 'block';
                 
-                await html5QrCode.start(
-                    { facingMode: "environment" }, 
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
-                    (decodedText) => {
-                        handleRollNumber(decodedText, true);
-                    },
-                    (errorMessage) => {}
-                );
+                const config = { 
+                    fps: 10, 
+                    // Rectangular box better for barcodes
+                    qrbox: { width: 300, height: 150 }, 
+                    aspectRatio: 1.0, 
+                    videoConstraints: {
+                        facingMode: { exact: "environment" },
+                        focusMode: "continuous"
+                    }
+                };
+                
+                const basicConfig = { facingMode: "environment" };
+
+                try {
+                    await html5QrCode.start(config.videoConstraints, config, onScanSuccess, onScanError);
+                } catch (e) {
+                    await html5QrCode.start(basicConfig, config, onScanSuccess, onScanError);
+                }
+
             } catch (err) {
-                notify("Camera error: " + err, "error");
+                console.error(err);
+                notify("Camera Access Denied", "error");
                 stopScanner();
             }
         });
+
+        function onScanSuccess(decodedText) {
+            handleRollNumber(decodedText, true);
+        }
+
+        function onScanError(errorMessage) {
+            // Ignore scan errors while seeking
+        }
 
         stopScanBtn.addEventListener('click', stopScanner);
 
@@ -423,11 +314,11 @@
                     scanBtn.style.display = 'block';
                     stopScanBtn.style.display = 'none';
                     html5QrCode.clear();
-                });
+                }).catch(err => console.log(err));
             }
         }
 
-        // --- Core Logic ---
+        // --- Core Data Logic ---
         function getStoredData() {
             const data = localStorage.getItem(STORAGE_KEY);
             return data ? JSON.parse(data) : [];
@@ -443,14 +334,12 @@
 
             if (!isScanned) rollInput.value = cleanText;
 
-            // Check Duplicate
             if (todayAttendance.has(cleanText)) {
                 notify("⚠️ " + cleanText + " already marked!", "warning");
                 if(!isScanned) rollInput.value = '';
                 return;
             }
 
-            // Save Data
             const timestamp = Date.now();
             const record = { 
                 roll: cleanText, 
@@ -463,8 +352,6 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
             
             todayAttendance.add(cleanText);
-
-            // Update UI
             addRowToTable(cleanText, timestamp);
             notify("✅ Added: " + cleanText, "success");
             
@@ -496,13 +383,13 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `attendance_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `nss_attendance_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
         });
 
-        // Background Keyboard Scanner
+        // External USB/Keyboard Scanner Listener
         let kbBuffer = '';
         let kbTimer;
         document.addEventListener('keydown', (e) => {
@@ -517,26 +404,27 @@
             }
         });
 
-        // --- Initialization ---
+        // --- Initialize ---
         function loadTodayData() {
             const today = new Date().toISOString().split('T')[0];
             const data = getStoredData();
             todayAttendance.clear();
-            tableBody.innerHTML = ''; // Clear table before loading
+            tableBody.innerHTML = ''; 
 
-            // Filter for today only
             const todaysRecords = data.filter(record => record.date === today);
             
             todaysRecords.forEach(record => {
                 todayAttendance.add(record.roll);
                 addRowToTable(record.roll, record.timestamp);
             });
+            countLabel.textContent = todayAttendance.size;
         }
 
         loadTodayData();
-        rollInput.focus();
+        
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            notify("⚠️ Camera blocked! Use HTTPS.", "error");
+        }
     </script>
-</body>
-</html>
 </body>
 </html>
