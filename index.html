@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSS Attendance</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --bg: #f4f6f8;
+            --text: #2d3748;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 { font-size: 1.5rem; color: var(--primary); letter-spacing: -0.5px; }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        /* Minimal Input Styling */
+        .input-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.85rem; font-weight: 600; color: #718096; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        input[type="date"], input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            transition: border 0.2s;
+            background: #fcfcfc;
+        }
+        input[type="text"] {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        input:focus { outline: none; border-color: var(--primary); background: white; }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.98); }
+        
+        .btn-primary { background: var(--primary); color: white; margin-bottom: 10px; }
+        .btn-outline { background: transparent; border: 2px solid #e2e8f0; color: #718096; }
+        .btn-outline:hover { border-color: #cbd5e0; color: #4a5568; }
+
+        /* Alerts */
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            text-align: center;
+            display: none;
+        }
+        .alert.success { background: #c6f6d5; color: #22543d; display: block; }
+        .alert.error { background: #fed7d7; color: #822727; display: block; }
+        .alert.warning { background: #feebc8; color: #744210; display: block; }
+
+        /* Utility */
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>NSS Attendance</h1>
+        </div>
+
+        <div class="card">
+            <div id="alertBox" class="alert"></div>
+
+            <div class="input-group">
+                <label>Student Roll Number</label>
+                <input type="text" id="rollInput" placeholder="Type roll number..." autocomplete="off">
+            </div>
+        </div>
+    </div>
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, getDocs, orderBy, serverTimestamp, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA50Rhc0tDKKfYYWBFRcrLYNFdWxO8jCf8",
+            authDomain: "attendance-nss-44e73.firebaseapp.com",
+            projectId: "attendance-nss-44e73",
+            storageBucket: "attendance-nss-44e73.firebasestorage.app",
+            messagingSenderId: "666526513680",
+            appId: "1:666526513680:web:4b206fef5f97a20411a895"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Elements
+        const rollInput = document.getElementById('rollInput');
+        const alertBox = document.getElementById('alertBox');
+
+        // Helper: Alerts
+        function notify(msg, type = 'success') {
+            alertBox.textContent = msg;
+            alertBox.className = `alert ${type}`;
+            setTimeout(() => { alertBox.style.display = 'none'; }, 3000);
+        }
+
+        // 2. Input Handling
+        async function handleRollNumber(text) {
+            const cleanText = text.trim().toUpperCase().replace(/[^A-Z0-9.]/g, '');
+            rollInput.value = cleanText;
+            
+            // Auto-save
+            const roll = cleanText;
+            const date = new Date().toISOString().split('T')[0];
+
+            if (!roll) { notify("Enter a roll number", "error"); return; }
+
+            rollInput.disabled = true;
+            rollInput.value = "...";
+
+            try {
+                await addDoc(collection(db, "attendance"), {
+                    roll: roll,
+                    date: date,
+                    submitted_at: serverTimestamp()
+                });
+
+                notify("✅ Saved: " + roll, "success");
+                rollInput.value = ''; // Clear input
+                rollInput.focus();
+            } catch (error) {
+                console.error(error);
+                notify("Save failed. Check internet.", "error");
+            } finally {
+                rollInput.disabled = false;
+            }
+        }
+
+        // Auto-save on enter
+        rollInput.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                const roll = rollInput.value.trim().toUpperCase();
+                const date = new Date().toISOString().split('T')[0];
+
+                if (!roll) { notify("Enter a roll number", "error"); return; }
+
+                rollInput.disabled = true;
+                rollInput.value = "...";
+
+                try {
+                    await addDoc(collection(db, "attendance"), {
+                        roll: roll,
+                        date: date,
+                        submitted_at: serverTimestamp()
+                    });
+
+                    notify("✅ Saved: " + roll, "success");
+                    rollInput.value = ''; // Clear input
+                    rollInput.focus();
+                } catch (error) {
+                    console.error(error);
+                    notify("Save failed. Check internet.", "error");
+                } finally {
+                    rollInput.disabled = false;
+                }
+            }
+        });
+
+        // Initial focus
+        rollInput.focus();
+
+    </script>
+</body>
+</html>
