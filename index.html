@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSS Attendance</title>
+    <title>NSS NFC Attendance</title>
     <style>
         :root {
             --primary: #667eea;
@@ -87,19 +87,19 @@
             color: var(--text-secondary); 
             margin-bottom: 20px;
         }
-        .btn-outline:hover { border-color: var(--text-secondary); color: white; }
+        .btn-outline:hover { border-color: var(--text-secondary); color: white; border-color: white;}
         
-        /* Scanner */
-        #scanner-container {
-            margin-bottom: 20px;
-            border-radius: 8px;
-            overflow: hidden;
-            display: none;
-            background: black;
-            border: 2px solid var(--border);
+        /* Animation */
+        .pulse {
+            animation: pulse-animation 2s infinite;
+            border-color: var(--primary);
+            color: var(--primary);
         }
-        #scanner-container.active { display: block; }
-        #reader { width: 100%; }
+        @keyframes pulse-animation {
+            0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+        }
 
         /* Table Styling */
         .table-container {
@@ -162,25 +162,21 @@
     <div class="container">
         <div class="header">
             <h1>NSS Attendance</h1>
-            <p>Scan Barcode or Enter Roll Number</p>
+            <p>Tap Card (NFC) or Type Roll Number</p>
         </div>
 
         <div class="card">
             <div id="alertBox" class="alert"></div>
 
-            <div id="scanner-container">
-                <div id="reader"></div>
-            </div>
-
-            <button id="scanBtn" class="btn btn-outline">📷 Open Barcode Scanner</button>
-            <button id="stopScanBtn" class="btn btn-outline" style="display: none;">🛑 Stop Camera</button>
+            <button id="nfcBtn" class="btn btn-outline">📡 Start NFC Scanner</button>
+            <p id="nfcStatus" style="text-align: center; color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 15px; display: none;">Approach ID Card to back of phone...</p>
 
             <div class="input-group">
-                <label>Roll Number</label>
-                <input type="text" id="rollInput" placeholder="Scan or Type..." autocomplete="off">
+                <label>Roll Number / Card ID</label>
+                <input type="text" id="rollInput" placeholder="Waiting for card..." autocomplete="off">
             </div>
 
-            <button id="saveBtn" class="btn btn-primary">Save Roll Number</button>
+            <button id="saveBtn" class="btn btn-primary">Save Entry</button>
             <button id="exportBtn" class="btn btn-primary" style="background-color: #2d3748;">Export CSV</button>
 
             <div class="table-container">
@@ -188,7 +184,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Roll Number</th>
+                            <th>ID / Roll No</th>
                             <th style="text-align: right;">Time</th>
                         </tr>
                     </thead>
@@ -199,22 +195,19 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-
     <script>
         // --- Variables ---
-        const STORAGE_KEY = 'nss_attendance_dark';
+        const STORAGE_KEY = 'nss_attendance_nfc';
         const rollInput = document.getElementById('rollInput');
         const saveBtn = document.getElementById('saveBtn');
         const exportBtn = document.getElementById('exportBtn');
-        const scanBtn = document.getElementById('scanBtn');
-        const stopScanBtn = document.getElementById('stopScanBtn');
+        const nfcBtn = document.getElementById('nfcBtn');
+        const nfcStatus = document.getElementById('nfcStatus');
         const alertBox = document.getElementById('alertBox');
-        const scannerContainer = document.getElementById('scanner-container');
         const tableBody = document.getElementById('attendanceTableBody');
         const countLabel = document.getElementById('count');
 
-        let html5QrCode = null;
+        let ndef = null; // NFC Reader Object
         let todayAttendance = new Set();
 
         // --- Helper: Update Table ---
@@ -238,85 +231,47 @@
             setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
         }
 
-        // --- Barcode Scanner Logic ---
-        scanBtn.addEventListener('click', async () => {
-            // HTTPS Check
-            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                notify("⚠️ iOS requires HTTPS! Use GitHub Pages.", "error");
-                return;
-            }
-
-            if (typeof Html5Qrcode === "undefined") {
-                notify("Scanner library loading...", "warning");
+        // --- NFC Logic (Web NFC API) ---
+        nfcBtn.addEventListener("click", async () => {
+            // Check if browser supports Web NFC
+            if (!("NDEFReader" in window)) {
+                notify("NFC not supported on this device/browser. (Use Android Chrome)", "error");
                 return;
             }
 
             try {
-                // Initialize with specific Barcode Formats
-                if (!html5QrCode) {
-                    html5QrCode = new Html5Qrcode("reader", { 
-                        formatsToSupport: [ 
-                            Html5QrcodeSupportedFormats.CODE_128,
-                            Html5QrcodeSupportedFormats.CODE_39,
-                            Html5QrcodeSupportedFormats.EAN_13,
-                            Html5QrcodeSupportedFormats.EAN_8,
-                            Html5QrcodeSupportedFormats.UPC_A,
-                            Html5QrcodeSupportedFormats.UPC_E,
-                            Html5QrcodeSupportedFormats.CODABAR
-                        ]
-                    }); 
-                }
+                ndef = new NDEFReader();
+                await ndef.scan();
                 
-                scannerContainer.classList.add('active');
-                scanBtn.style.display = 'none';
-                stopScanBtn.style.display = 'block';
-                
-                const config = { 
-                    fps: 10, 
-                    // Rectangular box better for barcodes
-                    qrbox: { width: 300, height: 150 }, 
-                    aspectRatio: 1.0, 
-                    videoConstraints: {
-                        facingMode: { exact: "environment" },
-                        focusMode: "continuous"
+                // UI Updates
+                nfcBtn.innerText = "Listening for Cards...";
+                nfcBtn.classList.add("pulse");
+                nfcStatus.style.display = "block";
+                notify("NFC Active! Tap card to phone.", "success");
+
+                ndef.onreadingerror = () => {
+                    notify("Read error! Try tapping again.", "error");
+                };
+
+                ndef.onreading = event => {
+                    // 1. Try to get Serial Number (UID)
+                    const serialNumber = event.serialNumber;
+                    
+                    if (serialNumber) {
+                        // Format serial number (e.g., 04:3a:22)
+                        const formattedID = serialNumber.toUpperCase();
+                        handleRollNumber(formattedID, true);
+                    } else {
+                        // If no serial, try to read text records
+                        // (Usually student IDs use the serial number, but just in case)
+                        notify("Card detected but no ID found.", "warning");
                     }
                 };
-                
-                const basicConfig = { facingMode: "environment" };
 
-                try {
-                    await html5QrCode.start(config.videoConstraints, config, onScanSuccess, onScanError);
-                } catch (e) {
-                    await html5QrCode.start(basicConfig, config, onScanSuccess, onScanError);
-                }
-
-            } catch (err) {
-                console.error(err);
-                notify("Camera Access Denied", "error");
-                stopScanner();
+            } catch (error) {
+                notify("Error starting NFC: " + error, "error");
             }
         });
-
-        function onScanSuccess(decodedText) {
-            handleRollNumber(decodedText, true);
-        }
-
-        function onScanError(errorMessage) {
-            // Ignore scan errors while seeking
-        }
-
-        stopScanBtn.addEventListener('click', stopScanner);
-
-        function stopScanner() {
-            if (html5QrCode) {
-                html5QrCode.stop().then(() => {
-                    scannerContainer.classList.remove('active');
-                    scanBtn.style.display = 'block';
-                    stopScanBtn.style.display = 'none';
-                    html5QrCode.clear();
-                }).catch(err => console.log(err));
-            }
-        }
 
         // --- Core Data Logic ---
         function getStoredData() {
@@ -325,10 +280,10 @@
         }
 
         function handleRollNumber(text, isScanned = false) {
-            const cleanText = text.trim().toUpperCase().replace(/[^A-Z0-9.]/g, '');
+            const cleanText = text.trim().toUpperCase(); // Allow colons for RFID format
             
             if (!cleanText) {
-                if(!isScanned) notify("Enter a roll number", "error"); 
+                if(!isScanned) notify("Enter a Value", "error"); 
                 return; 
             }
 
@@ -376,31 +331,33 @@
                 notify("No data to export", "warning");
                 return;
             }
-            const csvContent = "Roll Number,Date,Time\n" + 
+            const csvContent = "ID/Roll,Date,Time\n" + 
                 data.map(r => `${r.roll},${r.date},${new Date(r.timestamp).toLocaleTimeString()}`).join("\n");
 
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `nss_attendance_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `nss_nfc_attendance_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
         });
 
-        // External USB/Keyboard Scanner Listener
+        // USB RFID Reader Listener (Keyboard Emulation)
+        // Many USB readers act as keyboards. This captures that input.
         let kbBuffer = '';
         let kbTimer;
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
             if (e.key === 'Enter') {
-                if (kbBuffer.length > 3) handleRollNumber(kbBuffer, true);
+                if (kbBuffer.length > 2) handleRollNumber(kbBuffer, true);
                 kbBuffer = '';
             } else {
-                kbBuffer += e.key;
+                // Filter out non-character keys if necessary
+                if(e.key.length === 1) kbBuffer += e.key;
                 clearTimeout(kbTimer);
-                kbTimer = setTimeout(() => kbBuffer = '', 200);
+                kbTimer = setTimeout(() => kbBuffer = '', 200); // 200ms timeout for rapid input
             }
         });
 
@@ -422,8 +379,11 @@
 
         loadTodayData();
         
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            notify("⚠️ Camera blocked! Use HTTPS.", "error");
+        // Initial check
+        if (!("NDEFReader" in window)) {
+            // Don't show error immediately, but update button style to indicate it might be manual only
+            nfcBtn.innerText = "NFC Not Supported (Use Manual/USB)";
+            nfcBtn.style.opacity = "0.5";
         }
     </script>
 </body>
