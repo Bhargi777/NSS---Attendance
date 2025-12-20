@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSS NFC Attendance</title>
+    <title>NSS Dual Scanner</title>
     <style>
         :root {
             --primary: #667eea;
-            --bg: #000000;          /* Black Background */
-            --card-bg: #1a1a1a;     /* Dark Card */
-            --text: #ffffff;        /* White Text */
+            --bg: #000000;
+            --card-bg: #1a1a1a;
+            --text: #ffffff;
             --text-secondary: #a0aec0;
             --border: #333333;
             --input-bg: #2d2d2d;
@@ -32,125 +32,93 @@
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
-        .header h1 { font-size: 1.8rem; color: var(--primary); letter-spacing: -0.5px; margin-bottom: 5px;}
+        .header h1 { font-size: 1.8rem; color: var(--primary); margin-bottom: 5px; }
         .header p { color: var(--text-secondary); font-size: 0.9rem; }
         
         .card {
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 16px;
-            padding: 25px;
+            padding: 20px;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
-            margin-bottom: 20px;
         }
 
-        /* Input Styling */
-        .input-group { margin-bottom: 20px; }
-        label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-        
-        input[type="text"] {
-            width: 100%;
-            padding: 15px;
+        /* Scanner Box */
+        #scanner-container {
+            margin-bottom: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: black;
             border: 2px solid var(--border);
-            border-radius: 8px;
-            font-size: 1.1rem;
-            transition: all 0.2s;
-            background: var(--input-bg);
-            color: white;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            letter-spacing: 1px;
+            position: relative;
+            min-height: 300px; /* Placeholder height */
+            display: none;
         }
-        input:focus { outline: none; border-color: var(--primary); background: #333; }
+        #scanner-container.active { display: block; }
+        #reader { width: 100%; }
 
         /* Buttons */
         .btn {
             width: 100%;
-            padding: 15px;
+            padding: 14px;
             border: none;
             border-radius: 8px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
             margin-bottom: 15px;
+            transition: all 0.2s;
         }
         .btn:active { transform: scale(0.98); }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: #5a67d8; }
-        
         .btn-outline { 
             background: transparent; 
             border: 2px solid var(--border); 
             color: var(--text-secondary); 
             margin-bottom: 20px;
         }
-        .btn-outline:hover { border-color: var(--text-secondary); color: white; border-color: white;}
-        
-        /* Animation */
-        .pulse {
-            animation: pulse-animation 2s infinite;
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-        @keyframes pulse-animation {
-            0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
-        }
+        .btn-outline:hover { border-color: white; color: white; }
+        .btn-stop { background: #e53e3e; color: white; display: none; margin-bottom: 20px; }
 
-        /* Table Styling */
+        /* Inputs */
+        .input-group { margin-bottom: 15px; }
+        label { display: block; color: var(--text-secondary); margin-bottom: 8px; font-size: 0.85rem; font-weight: bold; }
+        input[type="text"] {
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+            background: var(--input-bg);
+            color: white;
+            font-size: 1.1rem;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        input:focus { outline: none; border-color: var(--primary); }
+
+        /* Table */
         .table-container {
             margin-top: 25px;
             border-top: 1px solid var(--border);
             padding-top: 20px;
         }
-        .table-header-label {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-bottom: 10px;
-            display: block;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95rem;
-        }
-        th {
-            text-align: left;
-            color: var(--text-secondary);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-        td {
-            padding: 14px 0;
-            border-bottom: 1px solid #333;
-            color: var(--text);
-        }
-        .roll-col {
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            color: var(--primary);
-        }
-        .time-col {
-            text-align: right;
-            color: var(--text-secondary);
-            font-size: 0.85rem;
-        }
+        .list-header { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 10px; display: block; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+        th { text-align: left; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px 0; border-bottom: 1px solid #333; color: white; }
+        .roll-col { color: var(--primary); font-family: 'Courier New', monospace; font-weight: bold; }
+        .time-col { text-align: right; color: var(--text-secondary); font-size: 0.85rem; }
 
         /* Alerts */
         .alert {
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 20px;
-            font-size: 0.9rem;
             text-align: center;
-            display: none;
             font-weight: 600;
+            display: none;
         }
         .alert.success { background: #2f855a; color: white; }
         .alert.error { background: #c53030; color: white; }
@@ -161,56 +129,71 @@
 
     <div class="container">
         <div class="header">
-            <h1>NSS Attendance</h1>
-            <p>Tap Card (NFC) or Type Roll Number</p>
+            <h1>NSS Scanner</h1>
+            <p>Scan QR Codes or Barcodes</p>
         </div>
 
         <div class="card">
             <div id="alertBox" class="alert"></div>
 
-            <button id="nfcBtn" class="btn btn-outline">📡 Start NFC Scanner</button>
-            <p id="nfcStatus" style="text-align: center; color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 15px; display: none;">Approach ID Card to back of phone...</p>
+            <div id="scanner-container">
+                <div id="reader"></div>
+            </div>
+
+            <button id="scanBtn" class="btn btn-outline">📷 Open Camera</button>
+            <button id="stopBtn" class="btn btn-stop">🛑 Stop Camera</button>
 
             <div class="input-group">
-                <label>Roll Number / Card ID</label>
-                <input type="text" id="rollInput" placeholder="Waiting for card..." autocomplete="off">
+                <label>Roll Number</label>
+                <input type="text" id="rollInput" placeholder="Scan or Type..." autocomplete="off">
             </div>
 
             <button id="saveBtn" class="btn btn-primary">Save Entry</button>
             <button id="exportBtn" class="btn btn-primary" style="background-color: #2d3748;">Export CSV</button>
 
             <div class="table-container">
-                <span class="table-header-label">Scanned List (<span id="count">0</span>)</span>
+                <span class="list-header">Scanned (<span id="count">0</span>)</span>
                 <table>
                     <thead>
                         <tr>
-                            <th>ID / Roll No</th>
+                            <th>Roll / ID</th>
                             <th style="text-align: right;">Time</th>
                         </tr>
                     </thead>
-                    <tbody id="attendanceTableBody">
-                        </tbody>
+                    <tbody id="attendanceTableBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
     <script>
         // --- Variables ---
-        const STORAGE_KEY = 'nss_attendance_nfc';
+        const STORAGE_KEY = 'nss_attendance_dual';
         const rollInput = document.getElementById('rollInput');
         const saveBtn = document.getElementById('saveBtn');
         const exportBtn = document.getElementById('exportBtn');
-        const nfcBtn = document.getElementById('nfcBtn');
-        const nfcStatus = document.getElementById('nfcStatus');
+        const scanBtn = document.getElementById('scanBtn');
+        const stopBtn = document.getElementById('stopBtn');
         const alertBox = document.getElementById('alertBox');
+        const scannerContainer = document.getElementById('scanner-container');
         const tableBody = document.getElementById('attendanceTableBody');
         const countLabel = document.getElementById('count');
 
-        let ndef = null; // NFC Reader Object
+        let html5QrCode = null;
         let todayAttendance = new Set();
+        let isScanning = false;
 
-        // --- Helper: Update Table ---
+        // --- Helper: Notifications ---
+        function notify(msg, type = 'success') {
+            alertBox.textContent = msg;
+            alertBox.className = `alert ${type}`;
+            alertBox.style.display = 'block';
+            setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
+        }
+
+        // --- Helper: Table Update ---
         function addRowToTable(roll, timestamp) {
             const row = document.createElement('tr');
             const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -224,77 +207,112 @@
             countLabel.textContent = todayAttendance.size;
         }
 
-        function notify(msg, type = 'success') {
-            alertBox.textContent = msg;
-            alertBox.className = `alert ${type}`;
-            alertBox.style.display = 'block';
-            setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
-        }
+        // --- Scanner Logic ---
+        scanBtn.addEventListener('click', async () => {
+            // HTTPS Check
+            if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                notify("⚠️ Camera blocked! Use HTTPS or GitHub Pages.", "error");
+                return;
+            }
 
-        // --- NFC Logic (Web NFC API) ---
-        nfcBtn.addEventListener("click", async () => {
-            // Check if browser supports Web NFC
-            if (!("NDEFReader" in window)) {
-                notify("NFC not supported on this device/browser. (Use Android Chrome)", "error");
+            if (typeof Html5Qrcode === "undefined") {
+                notify("Library loading... check internet.", "warning");
                 return;
             }
 
             try {
-                ndef = new NDEFReader();
-                await ndef.scan();
+                // Initialize Scanner
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+
+                scannerContainer.classList.add('active');
+                scanBtn.style.display = 'none';
+                stopBtn.style.display = 'block';
                 
-                // UI Updates
-                nfcBtn.innerText = "Listening for Cards...";
-                nfcBtn.classList.add("pulse");
-                nfcStatus.style.display = "block";
-                notify("NFC Active! Tap card to phone.", "success");
-
-                ndef.onreadingerror = () => {
-                    notify("Read error! Try tapping again.", "error");
+                // Config to support BOTH QR and Barcodes
+                const config = { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 250 }, // Square box for hybrid scanning
+                    aspectRatio: 1.0,
+                    // Important: Allow multiple formats
+                    formatsToSupport: [ 
+                        Html5QrcodeSupportedFormats.QR_CODE,
+                        Html5QrcodeSupportedFormats.CODE_128,
+                        Html5QrcodeSupportedFormats.CODE_39,
+                        Html5QrcodeSupportedFormats.EAN_13
+                    ]
                 };
 
-                ndef.onreading = event => {
-                    // 1. Try to get Serial Number (UID)
-                    const serialNumber = event.serialNumber;
-                    
-                    if (serialNumber) {
-                        // Format serial number (e.g., 04:3a:22)
-                        const formattedID = serialNumber.toUpperCase();
-                        handleRollNumber(formattedID, true);
-                    } else {
-                        // If no serial, try to read text records
-                        // (Usually student IDs use the serial number, but just in case)
-                        notify("Card detected but no ID found.", "warning");
-                    }
-                };
+                // Start Camera (Back Camera Preferred)
+                await html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    config, 
+                    onScanSuccess, 
+                    onScanError
+                );
+                
+                isScanning = true;
 
-            } catch (error) {
-                notify("Error starting NFC: " + error, "error");
+            } catch (err) {
+                console.error(err);
+                notify("Camera error: " + err, "error");
+                stopScanner();
             }
         });
 
-        // --- Core Data Logic ---
+        function onScanSuccess(decodedText, decodedResult) {
+            // Beep or visual feedback could go here
+            handleRollNumber(decodedText, true);
+        }
+
+        function onScanError(error) {
+            // Ignore frame read errors (too common)
+        }
+
+        stopBtn.addEventListener('click', stopScanner);
+
+        function stopScanner() {
+            if (html5QrCode && isScanning) {
+                html5QrCode.stop().then(() => {
+                    scannerContainer.classList.remove('active');
+                    scanBtn.style.display = 'block';
+                    stopBtn.style.display = 'none';
+                    isScanning = false;
+                    html5QrCode.clear();
+                }).catch(err => console.log("Stop failed", err));
+            } else {
+                 // Fallback UI reset
+                 scannerContainer.classList.remove('active');
+                 scanBtn.style.display = 'block';
+                 stopBtn.style.display = 'none';
+            }
+        }
+
+        // --- Data Handling ---
         function getStoredData() {
             const data = localStorage.getItem(STORAGE_KEY);
             return data ? JSON.parse(data) : [];
         }
 
         function handleRollNumber(text, isScanned = false) {
-            const cleanText = text.trim().toUpperCase(); // Allow colons for RFID format
+            const cleanText = text.trim().toUpperCase();
             
             if (!cleanText) {
-                if(!isScanned) notify("Enter a Value", "error"); 
+                if(!isScanned) notify("Enter a value", "error"); 
                 return; 
             }
 
             if (!isScanned) rollInput.value = cleanText;
 
+            // Check Duplicate
             if (todayAttendance.has(cleanText)) {
-                notify("⚠️ " + cleanText + " already marked!", "warning");
+                notify("⚠️ " + cleanText + " already scanned!", "warning");
                 if(!isScanned) rollInput.value = '';
                 return;
             }
 
+            // Save
             const timestamp = Date.now();
             const record = { 
                 roll: cleanText, 
@@ -308,7 +326,7 @@
             
             todayAttendance.add(cleanText);
             addRowToTable(cleanText, timestamp);
-            notify("✅ Added: " + cleanText, "success");
+            notify("✅ Saved: " + cleanText, "success");
             
             if (!isScanned) {
                 rollInput.value = '';
@@ -331,21 +349,20 @@
                 notify("No data to export", "warning");
                 return;
             }
-            const csvContent = "ID/Roll,Date,Time\n" + 
+            const csvContent = "ID,Date,Time\n" + 
                 data.map(r => `${r.roll},${r.date},${new Date(r.timestamp).toLocaleTimeString()}`).join("\n");
 
             const blob = new Blob([csvContent], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `nss_nfc_attendance_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `attendance_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
         });
 
-        // USB RFID Reader Listener (Keyboard Emulation)
-        // Many USB readers act as keyboards. This captures that input.
+        // Background Keyboard Listener (USB Scanners)
         let kbBuffer = '';
         let kbTimer;
         document.addEventListener('keydown', (e) => {
@@ -354,14 +371,13 @@
                 if (kbBuffer.length > 2) handleRollNumber(kbBuffer, true);
                 kbBuffer = '';
             } else {
-                // Filter out non-character keys if necessary
-                if(e.key.length === 1) kbBuffer += e.key;
+                if (e.key.length === 1) kbBuffer += e.key;
                 clearTimeout(kbTimer);
-                kbTimer = setTimeout(() => kbBuffer = '', 200); // 200ms timeout for rapid input
+                kbTimer = setTimeout(() => kbBuffer = '', 200);
             }
         });
 
-        // --- Initialize ---
+        // --- Init ---
         function loadTodayData() {
             const today = new Date().toISOString().split('T')[0];
             const data = getStoredData();
@@ -378,12 +394,10 @@
         }
 
         loadTodayData();
-        
-        // Initial check
-        if (!("NDEFReader" in window)) {
-            // Don't show error immediately, but update button style to indicate it might be manual only
-            nfcBtn.innerText = "NFC Not Supported (Use Manual/USB)";
-            nfcBtn.style.opacity = "0.5";
+
+        // Warning for non-HTTPS
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            notify("⚠️ Camera requires HTTPS!", "error");
         }
     </script>
 </body>
