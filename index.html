@@ -132,6 +132,7 @@
             <div class="input-group">
                 <label>Student Roll Number</label>
                 <input type="text" id="rollInput" placeholder="Scan or Type here..." autocomplete="off">
+                <small style="color: #718096; font-size: 0.8rem; margin-top: 5px; display: block;">Type roll number and press Enter, or use camera scan</small>
             </div>
 
             <button id="scanBtn" class="btn btn-outline" style="margin-bottom: 15px;">📷 Open Camera</button>
@@ -141,8 +142,11 @@
     </div>
 
 
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
-    <script type="module">
+    <script src="https://cdn.jsdelivr.net/gh/mebjas/html5-qrcode@2.3.8/dist/html5-qrcode.min.js" onload="console.log('Html5Qrcode library loaded successfully')"></script>
+    <script>
+        // Check if library loads
+        console.log('Html5Qrcode available:', typeof window.Html5Qrcode);
+        
         // Local storage key
         const STORAGE_KEY = 'nss_attendance';
 
@@ -178,8 +182,19 @@
                     throw new Error("Camera not supported on this device/browser");
                 }
 
+                // Check if Html5Qrcode is available
+                let attempts = 0;
+                while (typeof window.Html5Qrcode === 'undefined' && attempts < 10) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                if (typeof window.Html5Qrcode === 'undefined') {
+                    throw new Error("QR scanner library not loaded. Please refresh the page.");
+                }
+
                 if (!html5QrCode) {
-                    html5QrCode = new Html5Qrcode("reader");
+                    html5QrCode = new window.Html5Qrcode("reader");
                 }
 
                 scannerContainer.classList.add('active');
@@ -209,7 +224,20 @@
                 
             } catch (err) {
                 console.error("Camera error:", err);
-                notify("Camera error: " + err.message, "error");
+                let errorMsg = err.message;
+                
+                // Provide helpful error messages
+                if (errorMsg.includes("Permission denied")) {
+                    errorMsg = "Camera permission denied. Please allow camera access and try again, or use manual entry below.";
+                } else if (errorMsg.includes("not loaded")) {
+                    errorMsg = "Scanner library failed to load. Please refresh the page or use manual entry.";
+                } else if (errorMsg.includes("not supported")) {
+                    errorMsg = "Camera not supported. Please use manual entry below.";
+                } else {
+                    errorMsg += " Please use manual entry below.";
+                }
+                
+                notify("Camera error: " + errorMsg, "error");
                 stopScanner();
                 // Reset scanner instance on error
                 if (html5QrCode) {
