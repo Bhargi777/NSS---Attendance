@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSS Dual Scanner</title>
+    <title>NSS Final Scanner</title>
     <style>
         :root {
             --primary: #667eea;
+            --danger: #e53e3e;
             --bg: #000000;
             --card-bg: #1a1a1a;
             --text: #ffffff;
@@ -45,7 +46,7 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
         }
 
-        /* Scanner Box */
+        /* Scanner Viewport */
         #scanner-container {
             margin-bottom: 20px;
             border-radius: 12px;
@@ -53,7 +54,7 @@
             background: black;
             border: 2px solid var(--border);
             position: relative;
-            min-height: 300px; /* Placeholder height */
+            min-height: 300px;
             display: none;
         }
         #scanner-container.active { display: block; }
@@ -80,7 +81,9 @@
             margin-bottom: 20px;
         }
         .btn-outline:hover { border-color: white; color: white; }
-        .btn-stop { background: #e53e3e; color: white; display: none; margin-bottom: 20px; }
+        .btn-stop { background: var(--danger); color: white; display: none; margin-bottom: 20px; }
+        .btn-clear { background: transparent; border: 1px solid var(--danger); color: var(--danger); margin-top: 20px; }
+        .btn-clear:hover { background: var(--danger); color: white; }
 
         /* Inputs */
         .input-group { margin-bottom: 15px; }
@@ -104,7 +107,7 @@
             border-top: 1px solid var(--border);
             padding-top: 20px;
         }
-        .list-header { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 10px; display: block; }
+        .list-header { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 10px; display: flex; justify-content: space-between; }
         table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
         th { text-align: left; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
         td { padding: 12px 0; border-bottom: 1px solid #333; color: white; }
@@ -129,8 +132,8 @@
 
     <div class="container">
         <div class="header">
-            <h1>NSS Scanner</h1>
-            <p>Scan QR Codes or Barcodes</p>
+            <h1>NSS Event Scanner</h1>
+            <p>Dual Mode: QR & Barcode</p>
         </div>
 
         <div class="card">
@@ -152,7 +155,9 @@
             <button id="exportBtn" class="btn btn-primary" style="background-color: #2d3748;">Export CSV</button>
 
             <div class="table-container">
-                <span class="list-header">Scanned (<span id="count">0</span>)</span>
+                <div class="list-header">
+                    <span>Scanned: <span id="count">0</span></span>
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -163,17 +168,19 @@
                     <tbody id="attendanceTableBody"></tbody>
                 </table>
             </div>
+
+            <button id="clearBtn" class="btn btn-clear">🗑️ Clear All Data</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <script>
-        // --- Variables ---
-        const STORAGE_KEY = 'nss_attendance_dual';
+        const STORAGE_KEY = 'nss_attendance_final';
         const rollInput = document.getElementById('rollInput');
         const saveBtn = document.getElementById('saveBtn');
         const exportBtn = document.getElementById('exportBtn');
+        const clearBtn = document.getElementById('clearBtn');
         const scanBtn = document.getElementById('scanBtn');
         const stopBtn = document.getElementById('stopBtn');
         const alertBox = document.getElementById('alertBox');
@@ -185,7 +192,6 @@
         let todayAttendance = new Set();
         let isScanning = false;
 
-        // --- Helper: Notifications ---
         function notify(msg, type = 'success') {
             alertBox.textContent = msg;
             alertBox.className = `alert ${type}`;
@@ -193,49 +199,46 @@
             setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
         }
 
-        // --- Helper: Table Update ---
         function addRowToTable(roll, timestamp) {
             const row = document.createElement('tr');
             const timeStr = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            row.innerHTML = `
-                <td class="roll-col">${roll}</td>
-                <td class="time-col">${timeStr}</td>
-            `;
-            
+            row.innerHTML = `<td class="roll-col">${roll}</td><td class="time-col">${timeStr}</td>`;
             tableBody.insertBefore(row, tableBody.firstChild);
             countLabel.textContent = todayAttendance.size;
         }
 
-        // --- Scanner Logic ---
+        // --- CLEAR DATA FUNCTION ---
+        clearBtn.addEventListener('click', () => {
+            if(confirm("⚠️ ARE YOU SURE?\n\nThis will delete all scanned numbers from this phone permanently.\n\nMake sure you have exported the CSV first!")) {
+                localStorage.removeItem(STORAGE_KEY);
+                todayAttendance.clear();
+                tableBody.innerHTML = '';
+                countLabel.textContent = '0';
+                notify("All data cleared successfully.", "warning");
+            }
+        });
+
+        // --- Scanner ---
         scanBtn.addEventListener('click', async () => {
-            // HTTPS Check
             if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
                 notify("⚠️ Camera blocked! Use HTTPS or GitHub Pages.", "error");
                 return;
             }
-
             if (typeof Html5Qrcode === "undefined") {
                 notify("Library loading... check internet.", "warning");
                 return;
             }
 
             try {
-                // Initialize Scanner
-                if (!html5QrCode) {
-                    html5QrCode = new Html5Qrcode("reader");
-                }
-
+                if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
                 scannerContainer.classList.add('active');
                 scanBtn.style.display = 'none';
                 stopBtn.style.display = 'block';
                 
-                // Config to support BOTH QR and Barcodes
                 const config = { 
                     fps: 10, 
-                    qrbox: { width: 250, height: 250 }, // Square box for hybrid scanning
+                    qrbox: { width: 250, height: 250 },
                     aspectRatio: 1.0,
-                    // Important: Allow multiple formats
                     formatsToSupport: [ 
                         Html5QrcodeSupportedFormats.QR_CODE,
                         Html5QrcodeSupportedFormats.CODE_128,
@@ -244,31 +247,19 @@
                     ]
                 };
 
-                // Start Camera (Back Camera Preferred)
-                await html5QrCode.start(
-                    { facingMode: "environment" }, 
-                    config, 
-                    onScanSuccess, 
-                    onScanError
-                );
-                
+                await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanError);
                 isScanning = true;
 
             } catch (err) {
-                console.error(err);
                 notify("Camera error: " + err, "error");
                 stopScanner();
             }
         });
 
-        function onScanSuccess(decodedText, decodedResult) {
-            // Beep or visual feedback could go here
+        function onScanSuccess(decodedText) {
             handleRollNumber(decodedText, true);
         }
-
-        function onScanError(error) {
-            // Ignore frame read errors (too common)
-        }
+        function onScanError(error) {}
 
         stopBtn.addEventListener('click', stopScanner);
 
@@ -280,9 +271,8 @@
                     stopBtn.style.display = 'none';
                     isScanning = false;
                     html5QrCode.clear();
-                }).catch(err => console.log("Stop failed", err));
+                });
             } else {
-                 // Fallback UI reset
                  scannerContainer.classList.remove('active');
                  scanBtn.style.display = 'block';
                  stopBtn.style.display = 'none';
@@ -305,14 +295,12 @@
 
             if (!isScanned) rollInput.value = cleanText;
 
-            // Check Duplicate
             if (todayAttendance.has(cleanText)) {
                 notify("⚠️ " + cleanText + " already scanned!", "warning");
                 if(!isScanned) rollInput.value = '';
                 return;
             }
 
-            // Save
             const timestamp = Date.now();
             const record = { 
                 roll: cleanText, 
@@ -336,7 +324,6 @@
             }
         }
 
-        // --- Event Listeners ---
         saveBtn.addEventListener('click', () => handleRollNumber(rollInput.value));
         
         rollInput.addEventListener('keydown', (e) => {
@@ -362,7 +349,7 @@
             document.body.removeChild(a);
         });
 
-        // Background Keyboard Listener (USB Scanners)
+        // USB Scanner Support
         let kbBuffer = '';
         let kbTimer;
         document.addEventListener('keydown', (e) => {
@@ -377,25 +364,21 @@
             }
         });
 
-        // --- Init ---
+        // Init
         function loadTodayData() {
             const today = new Date().toISOString().split('T')[0];
             const data = getStoredData();
             todayAttendance.clear();
             tableBody.innerHTML = ''; 
-
             const todaysRecords = data.filter(record => record.date === today);
-            
             todaysRecords.forEach(record => {
                 todayAttendance.add(record.roll);
                 addRowToTable(record.roll, record.timestamp);
             });
             countLabel.textContent = todayAttendance.size;
         }
-
         loadTodayData();
-
-        // Warning for non-HTTPS
+        
         if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
             notify("⚠️ Camera requires HTTPS!", "error");
         }
