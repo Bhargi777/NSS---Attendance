@@ -86,6 +86,16 @@
             background: #000;
         }
         #scanner-container.active { display: block; }
+        #reader {
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        #reader video {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
 
         /* Alerts */
         .alert {
@@ -131,7 +141,7 @@
     </div>
 
 
-    <script src="https://unpkg.com/html5-qrcode@2.3.7/minified/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
     <script type="module">
         // Local storage key
         const STORAGE_KEY = 'nss_attendance';
@@ -162,26 +172,49 @@
 
         // 1. Scanner Logic
         scanBtn.addEventListener('click', async () => {
-            if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-            
             try {
+                // Check if camera is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Camera not supported on this device/browser");
+                }
+
+                if (!html5QrCode) {
+                    html5QrCode = new Html5Qrcode("reader");
+                }
+
                 scannerContainer.classList.add('active');
                 scanBtn.style.display = 'none'; // Hide "Open Camera" button
                 
+                notify("Starting camera...", "warning");
+                
                 await html5QrCode.start(
                     { facingMode: "environment" },
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
-                    (decodedText) => {
-                        // Success
-                        handleRollNumber(decodedText);
-                        stopScanner();
-                        notify("Scanned!", "success");
+                    { 
+                        fps: 10, 
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1.0
                     },
-                    () => {}
+                    (decodedText) => {
+                        // Success - auto-save
+                        handleRollNumber(decodedText, true);
+                        stopScanner();
+                    },
+                    (errorMessage) => {
+                        // Error callback - usually not critical
+                        console.log("QR scan error:", errorMessage);
+                    }
                 );
+                
+                notify("Camera ready! Point at QR code", "success");
+                
             } catch (err) {
-                notify("Camera error: " + err, "error");
+                console.error("Camera error:", err);
+                notify("Camera error: " + err.message, "error");
                 stopScanner();
+                // Reset scanner instance on error
+                if (html5QrCode) {
+                    html5QrCode = null;
+                }
             }
         });
 
@@ -190,6 +223,11 @@
         function stopScanner() {
             if (html5QrCode && html5QrCode.isScanning) {
                 html5QrCode.stop().then(() => {
+                    scannerContainer.classList.remove('active');
+                    scanBtn.style.display = 'block';
+                    notify("Camera stopped", "warning");
+                }).catch((err) => {
+                    console.error("Error stopping scanner:", err);
                     scannerContainer.classList.remove('active');
                     scanBtn.style.display = 'block';
                 });
@@ -205,11 +243,14 @@
         }
 
         // 2. Input Handling
-        function handleRollNumber(text) {
+        function handleRollNumber(text, isScanned = false) {
             const cleanText = text.trim().toUpperCase().replace(/[^A-Z0-9.]/g, '');
-            rollInput.value = cleanText;
             
-            // Auto-check for duplicates visually
+            if (!isScanned) {
+                rollInput.value = cleanText;
+            }
+            
+            // Auto-check for duplicates
             if (todayAttendance.has(cleanText)) {
                 notify("⚠️ Already marked today!", "warning");
                 return;
@@ -220,15 +261,21 @@
             const date = new Date().toISOString().split('T')[0];
             const timestamp = Date.now();
 
-            if (!roll) { notify("Enter a roll number", "error"); return; }
+            if (!roll) { 
+                notify("Enter a roll number", "error"); 
+                return; 
+            }
 
             const record = { roll, date, timestamp };
             saveToStorage(record);
             todayAttendance.add(roll);
 
             notify("✅ Saved: " + roll, "success");
-            rollInput.value = ''; // Clear input
-            rollInput.focus();
+            
+            if (!isScanned) {
+                rollInput.value = ''; // Clear input only for manual entry
+                rollInput.focus();
+            }
         }
 
         // Auto-save on enter
@@ -316,6 +363,30 @@
                     todayAttendance.add(record.roll);
                 }
             });
+        }
+
+        // Keyboard Scanner Support (for external barcode scanners)
+        let kbBuffer = '';
+        let kbTimer;
+        document.addEventListener('keydown', (e) => {
+            // Don't capture if typing in input field
+            if (e.target.tagName === 'INPUT' && e.target.id === 'rollInput') return;
+            
+            if (e.key === 'Enter') {
+                if (kbBuffer.length > 2) { // Minimum length for roll number
+                    handleRollNumber(kbBuffer, true);
+                }
+                kbBuffer = '';
+            } else if (e.key.length === 1) { // Only add printable characters
+                kbBuffer += e.key;
+                clearTimeout(kbTimer);
+                kbTimer = setTimeout(() => kbBuffer = '', 200); // Clear buffer after 200ms of inactivity
+            }
+        });
+
+        // Check for HTTPS (required for camera access)
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            notify("⚠️ Camera requires HTTPS. Please access via https://", "warning");
         }
 
         // Initial load and focus
