@@ -3,51 +3,333 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NSS Event Scanner</title>
+<title>NSS</title>
 
 <style>
 :root {
-    --primary:#667eea; --danger:#e53e3e; --bg:#000;
-    --card-bg:#1a1a1a; --text:#fff; --text-secondary:#a0aec0;
-    --border:#333; --input-bg:#2d2d2d;
+    --color-background: #ffffff;
+    --color-surface: #ffffff;
+    --color-text: #13343b;
+    --color-text-secondary: #626c71;
+    --color-primary: #21808d;
+    --color-primary-hover: #1d7480;
+    --color-border: rgba(94, 82, 64, 0.2);
+    --color-error: #c0152f;
+    --color-success: #21808d;
+    --color-card-bg: #f8f9fa;
+    --color-input-bg: #ffffff;
+    --radius-base: 8px;
+    --radius-lg: 12px;
+    --space-16: 16px;
+    --space-20: 20px;
+    --space-24: 24px;
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
 }
-*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
-body{background:var(--bg);color:var(--text);display:flex;justify-content:center;min-height:100vh;padding:20px}
-.container{max-width:600px;width:100%}
-.header{text-align:center;margin-bottom:25px}
-.header h1{color:var(--primary)}
-.card{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;padding:20px}
 
-#scanner-container{display:none;border:2px solid var(--border);border-radius:12px;margin-bottom:20px}
-#scanner-container.active{display:block}
-#reader{width:100%}
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
-.btn{width:100%;padding:14px;border:none;border-radius:8px;font-weight:600;margin-bottom:12px;cursor:pointer}
-.btn-outline{background:none;border:2px solid var(--border);color:var(--text-secondary)}
-.btn-primary{background:var(--primary);color:#fff}
-.btn-stop{background:var(--danger);display:none}
-.btn-clear{border:1px solid var(--danger);background:none;color:var(--danger)}
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', sans-serif;
+    background: var(--color-background);
+    color: var(--color-text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-20);
+}
 
-input{width:100%;padding:14px;border-radius:8px;border:2px solid var(--border);background:var(--input-bg);color:white;font-weight:bold}
+.container {
+    max-width: 600px;
+    width: 100%;
+}
 
-table{width:100%;border-collapse:collapse;margin-top:15px}
-th,td{border-bottom:1px solid #333;padding:10px}
-.roll-col{color:var(--primary);font-weight:bold}
-.time-col{text-align:right;color:var(--text-secondary)}
-small{color:var(--text-secondary)}
+.header {
+    text-align: center;
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
-.alert{display:none;padding:12px;border-radius:8px;margin-bottom:15px;text-align:center;font-weight:bold}
-.alert.success{background:#2f855a}
-.alert.warning{background:#b7791f}
-.alert.error{background:#c53030}
+.logo-container {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 15px;
+}
+
+.logo {
+    height: 60px;
+    width: auto;
+}
+
+.header h1 {
+    color: var(--color-primary);
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.subtitle {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+.card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+}
+
+#scanner-container {
+    display: none;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    margin: var(--space-20) 0;
+    text-align: center;
+    background: var(--color-card-bg);
+    padding: var(--space-20);
+}
+
+#scanner-container.active {
+    display: block;
+}
+
+#reader {
+    width: 100%;
+    max-width: 350px;
+    margin: 0 auto;
+    border-radius: var(--radius-base);
+}
+
+input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    font-size: 14px;
+    background: var(--color-input-bg);
+    color: var(--color-text);
+    transition: border-color 0.2s;
+    margin-bottom: var(--space-16);
+}
+
+input:focus {
+    outline: 2px solid var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+input::placeholder {
+    color: var(--color-text-secondary);
+}
+
+.btn {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-base);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 12px;
+}
+
+.btn:hover {
+    background: var(--color-primary-hover);
+}
+
+.btn-outline {
+    background: none;
+    border: 2px solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.btn-outline:hover {
+    background: var(--color-card-bg);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.btn-stop {
+    background: var(--color-error);
+}
+
+.btn-stop:hover {
+    background: #a01327;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.alert {
+    padding: 12px 16px;
+    border-radius: var(--radius-base);
+    margin-bottom: var(--space-16);
+    font-size: 14px;
+    display: none;
+    font-weight: 500;
+}
+
+.alert.show {
+    display: block;
+}
+
+.alert.success {
+    background: rgba(33, 128, 141, 0.1);
+    color: var(--color-success);
+    border: 1px solid rgba(33, 128, 141, 0.25);
+}
+
+.alert.error {
+    background: rgba(192, 21, 47, 0.1);
+    color: var(--color-error);
+    border: 1px solid rgba(192, 21, 47, 0.25);
+}
+
+.alert.warning {
+    background: rgba(255, 193, 7, 0.1);
+    color: #856404;
+    border: 1px solid rgba(255, 193, 7, 0.25);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--space-20);
+    background: var(--color-surface);
+    border-radius: var(--radius-base);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
+th, td {
+    border-bottom: 1px solid var(--color-border);
+    padding: 12px 16px;
+    text-align: left;
+}
+
+th {
+    background: var(--color-card-bg);
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 14px;
+}
+
+.roll-col {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.time-col {
+    text-align: right;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.action-col {
+    text-align: right;
+    width: 50px;
+}
+
+.entry-menu {
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-base);
+    color: var(--color-text-secondary);
+    transition: background 0.2s;
+}
+
+.entry-menu:hover {
+    background: var(--color-card-bg);
+}
+
+.menu-options {
+    display: none;
+    position: absolute;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    min-width: 80px;
+    z-index: 10;
+    box-shadow: var(--shadow-md);
+}
+
+.menu-options.show {
+    display: block;
+}
+
+.menu-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+    border-radius: var(--radius-base);
+}
+
+.menu-option:hover {
+    background: var(--color-card-bg);
+}
+
+.menu-option.delete {
+    color: var(--color-error);
+}
+
+.btn-clear {
+    background: none;
+    border: 1px solid var(--color-error);
+    color: var(--color-error);
+    margin-top: var(--space-16);
+}
+
+.btn-clear:hover {
+    background: rgba(192, 21, 47, 0.1);
+}
+
+@media (max-width: 580px) {
+    .card {
+        padding: 24px 18px;
+    }
+    h1 {
+        font-size: 20px;
+    }
+    .logo-container {
+        gap: 20px;
+    }
+    .logo {
+        height: 45px;
+    }
+    #scanner-container {
+        padding: var(--space-16);
+    }
+    #reader {
+        max-width: 280px;
+    }
+}
 </style>
 </head>
 
 <body>
 <div class="container">
 <div class="header">
-<h1>NSS Event Scanner</h1>
-<p>QR + Name Verification</p>
+<div class="logo-container">
+<img src="NSS.png" alt="NSS Logo" class="logo">
+<img src="AMRITA.png" alt="Amrita Logo" class="logo">
+</div>
+<h1>NSS Attendance System</h1>
+<div class="subtitle">Amrita Vishwa Vidyapeetham</div>
 </div>
 
 <div class="card">
@@ -57,17 +339,17 @@ small{color:var(--text-secondary)}
 <div id="reader"></div>
 </div>
 
-<button id="scanBtn" class="btn btn-outline">Scan</button>
-<button id="stopBtn" class="btn btn-stop">Stop</button>
+<button id="scanBtn" class="btn btn-outline">📱 Scan QR Code</button>
+<button id="testBtn" class="btn btn-outline" style="background: #e3f2fd; color: #1976d2;">Test Camera</button>
 
-<input id="rollInput" placeholder="Scan or type…">
+<input id="rollInput" placeholder="Enter roll number or scan QR code">
 
 <button id="saveBtn" class="btn btn-primary">Save Entry</button>
 <button id="exportBtn" class="btn btn-primary" style="background:#2d3748">Export CSV</button>
 
 <table>
 <thead>
-<tr><th>Roll / Name</th><th class="time-col">Time</th></tr>
+<tr><th>Roll / Name</th><th class="time-col">Time</th><th class="action-col"></th></tr>
 </thead>
 <tbody id="attendanceTableBody"></tbody>
 </table>
@@ -76,19 +358,38 @@ small{color:var(--text-secondary)}
 </div>
 </div>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
 
 <script>
 const STORAGE_KEY="nss_attendance_final";
 const tableBody=document.getElementById("attendanceTableBody");
 const rollInput=document.getElementById("rollInput");
 const alertBox=document.getElementById("alertBox");
-let todayAttendance=new Set();
-let html5QrCode=null,isScanning=false;
+let html5QrCode=null;
+let isScanning=false;
+
+// Check if library is loaded
+console.log("Html5Qrcode available:", typeof Html5Qrcode);
+console.log("window.Html5Qrcode available:", typeof window.Html5Qrcode);
+
+// Test library loading
+setTimeout(() => {
+    try {
+        if (typeof Html5Qrcode !== 'undefined') {
+            console.log("Html5Qrcode library loaded successfully");
+            const testInstance = new Html5Qrcode("reader");
+            console.log("Test instance created successfully");
+        } else {
+            console.error("Html5Qrcode library not loaded");
+        }
+    } catch (e) {
+        console.error("Error testing Html5Qrcode:", e);
+    }
+}, 1000);
 
 function notify(msg,type="success"){
 alertBox.textContent=msg;
-alertBox.className=`alert ${type}`;
+alertBox.className=`alert ${type} show`;
 alertBox.style.display="block";
 setTimeout(()=>alertBox.style.display="none",3000);
 }
@@ -106,11 +407,19 @@ roll=text.trim().toUpperCase();
 return {roll,name};
 }
 
-function addRow(roll,name,time){
+function addRow(roll,name,time,timestamp){
 const tr=document.createElement("tr");
+tr.dataset.roll=roll;
+tr.dataset.timestamp=timestamp;
 tr.innerHTML=`
 <td class="roll-col">${roll}<br><small>${name||""}</small></td>
-<td class="time-col">${time}</td>`;
+<td class="time-col">${time}</td>
+<td class="action-col">
+<div class="entry-menu" onclick="toggleMenu(this)">⋮</div>
+<div class="menu-options">
+<div class="menu-option delete" onclick="deleteEntry('${roll}', ${timestamp})">Delete</div>
+</div>
+</td>`;
 tableBody.prepend(tr);
 }
 
@@ -126,27 +435,134 @@ const record={roll,name,date:now.toISOString().split("T")[0],timestamp:now.getTi
 const data=getData(); data.push(record);
 localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
 todayAttendance.add(roll);
-addRow(roll,name,now.toLocaleTimeString());
+addRow(roll,name,now.toLocaleTimeString(),now.getTime());
 notify(`Saved ${roll}`);
 rollInput.value="";
 }
 
-document.getElementById("saveBtn").onclick=()=>saveEntry(rollInput.value);
+function toggleMenu(menuElement){
+const options=menuElement.nextElementSibling;
+const allMenus=document.querySelectorAll('.menu-options');
+allMenus.forEach(menu=>menu.classList.remove('show'));
+options.classList.toggle('show');
+}
 
-document.getElementById("scanBtn").onclick=async()=>{
-html5QrCode=new Html5Qrcode("reader");
-document.getElementById("scanner-container").classList.add("active");
-document.getElementById("scanBtn").style.display="none";
-document.getElementById("stopBtn").style.display="block";
-await html5QrCode.start({facingMode:"environment"},{fps:10,qrbox:250},
-txt=>saveEntry(txt));
+function deleteEntry(roll,timestamp){
+if(confirm(`Delete entry for ${roll}?`)){
+const data=getData();
+const filteredData=data.filter(r=>!(r.roll===roll && r.timestamp===timestamp));
+localStorage.setItem(STORAGE_KEY,JSON.stringify(filteredData));
+todayAttendance.delete(roll);
+const row=document.querySelector(`tr[data-roll="${roll}"][data-timestamp="${timestamp}"]`);
+if(row) row.remove();
+notify(`Deleted ${roll}`,"warning");
+}
+}
+
+// Close menus when clicking outside
+document.addEventListener('click',function(e){
+if(!e.target.closest('.entry-menu') && !e.target.closest('.menu-options')){
+document.querySelectorAll('.menu-options').forEach(menu=>menu.classList.remove('show'));
+}
+});
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+if(isScanning && html5QrCode){
+    try {
+        html5QrCode.stop();
+        html5QrCode.clear();
+    } catch(e) {
+        console.log("Cleanup error:", e);
+    }
+}
+});
+
+document.getElementById("testBtn").onclick=async()=>{
+    console.log("Testing camera access...");
+    try {
+        // Test basic camera access
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" } 
+        });
+        console.log("Camera access granted");
+        notify("Camera access works! Try scanning now.", "success");
+        
+        // Stop the test stream
+        stream.getTracks().forEach(track => track.stop());
+    } catch(error) {
+        console.error("Camera test failed:", error);
+        notify("Camera access failed: " + error.message, "error");
+    }
 };
 
-document.getElementById("stopBtn").onclick=()=>{
-html5QrCode.stop(); html5QrCode.clear();
-document.getElementById("scanner-container").classList.remove("active");
-document.getElementById("scanBtn").style.display="block";
-document.getElementById("stopBtn").style.display="none";
+document.getElementById("scanBtn").onclick=async()=>{
+console.log("Scan button clicked, isScanning:", isScanning);
+if(isScanning){
+    // Stop scanning
+    console.log("Stopping scanner...");
+    try {
+        if(html5QrCode){
+            await html5QrCode.stop();
+            html5QrCode.clear();
+            console.log("Scanner stopped successfully");
+        }
+        document.getElementById("scanner-container").classList.remove("active");
+        document.getElementById("scanBtn").textContent="📱 Scan QR Code";
+        document.getElementById("scanBtn").className="btn btn-outline";
+        isScanning = false;
+        notify("Scanning stopped", "warning");
+    } catch(error) {
+        console.error("Error stopping scanner:", error);
+        notify("Error stopping scanner", "error");
+    }
+}else{
+    // Start scanning
+    console.log("Starting scanner...");
+    try {
+        // Check if library is available
+        if (typeof Html5Qrcode === 'undefined') {
+            throw new Error("QR Code library not loaded. Please refresh the page.");
+        }
+        
+        html5QrCode = new (window.Html5Qrcode || Html5Qrcode)("reader");
+        console.log("Html5Qrcode instance created");
+        document.getElementById("scanner-container").classList.add("active");
+        document.getElementById("scanBtn").textContent="⏹️ Stop Scanning";
+        document.getElementById("scanBtn").className="btn btn-stop";
+        
+        console.log("Starting camera...");
+        await html5QrCode.start(
+            {facingMode:"environment"},
+            {
+                fps:10,
+                qrbox:250,
+                aspectRatio: 1.0
+            },
+            (decodedText) => {
+                console.log("QR Code detected:", decodedText);
+                console.log("Parsed data:", parseQR(decodedText));
+                saveEntry(decodedText);
+            },
+            (errorMessage) => {
+                // Ignore scan errors, they're normal
+                console.log("QR scan error:", errorMessage);
+            }
+        );
+        
+        isScanning = true;
+        console.log("Camera started successfully");
+        notify("Camera started - point at QR code", "success");
+    } catch(error) {
+        console.error("Error starting scanner:", error);
+        notify("Error starting camera: " + error.message, "error");
+        // Reset button state
+        document.getElementById("scanBtn").textContent="📱 Scan QR Code";
+        document.getElementById("scanBtn").className="btn btn-outline";
+        document.getElementById("scanner-container").classList.remove("active");
+        isScanning = false;
+    }
+}
 };
 
 document.getElementById("exportBtn").onclick=()=>{
@@ -172,7 +588,7 @@ notify("Cleared","warning");
 const today=new Date().toISOString().split("T")[0];
 getData().filter(r=>r.date===today).forEach(r=>{
 todayAttendance.add(r.roll);
-addRow(r.roll,r.name,new Date(r.timestamp).toLocaleTimeString());
+addRow(r.roll,r.name,new Date(r.timestamp).toLocaleTimeString(),r.timestamp);
 });
 })();
 </script>
