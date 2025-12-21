@@ -342,7 +342,7 @@ th {
 <button id="scanBtn" class="btn btn-outline">📱 Scan QR Code</button>
 <button id="refreshBtn" class="btn btn-outline" style="background: #fff3cd; color: #856404;">🔄 Refresh Scanner</button>
 
-<input id="rollInput" placeholder="Enter roll number or scan QR code">
+<input id="rollInput" placeholder="Enter roll number or scan QR code (manual entry works too!)">
 
 <button id="saveBtn" class="btn btn-primary">Save Entry</button>
 <button id="exportBtn" class="btn btn-primary" style="background:#2d3748">Export CSV</button>
@@ -357,61 +357,6 @@ th {
 <button id="clearBtn" class="btn btn-clear">Clear All</button>
 </div>
 </div>
-
-<script>
-// Fallback QR library loading
-(function() {
-    // Try multiple CDNs in case one fails
-    const cdns = [
-        'https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js',
-        'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js',
-        'https://unpkg.com/html5-qrcode@2.3.8/minified/html5-qrcode.min.js'
-    ];
-
-    let loaded = false;
-
-    function tryLoad(index) {
-        if (index >= cdns.length) {
-            console.error('All QR library CDNs failed to load');
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = cdns[index];
-        script.onload = function() {
-            loaded = true;
-            console.log('QR library loaded successfully from:', cdns[index]);
-        };
-        script.onerror = function() {
-            console.warn('Failed to load from:', cdns[index], '- trying next CDN...');
-            tryLoad(index + 1);
-        };
-        document.head.appendChild(script);
-    }
-
-    // Check if already loaded
-    if (typeof Html5Qrcode !== 'undefined') {
-        console.log('QR library already loaded');
-        loaded = true;
-    } else {
-        tryLoad(0);
-    }
-
-    // Make available globally after a delay
-    setTimeout(() => {
-        if (!loaded && typeof Html5Qrcode === 'undefined') {
-            console.error('QR library failed to load from all sources');
-            // Fallback: show error message
-            setTimeout(() => {
-                if (document.getElementById('alertBox')) {
-                    document.getElementById('alertBox').textContent = 'QR library failed to load. Please refresh the page.';
-                    document.getElementById('alertBox').className = 'alert error show';
-                    document.getElementById('alertBox').style.display = 'block';
-                }
-            }, 2000);
-        }
-    }, 5000);
-})();
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
 
@@ -428,36 +373,25 @@ function checkLibraryLoaded() {
     return typeof Html5Qrcode !== 'undefined' || typeof window.Html5Qrcode !== 'undefined';
 }
 
-console.log("Initial check - Html5Qrcode available:", checkLibraryLoaded());
+console.log("Checking QR library availability...");
 
 // Wait for library to load
 let libraryCheckInterval = setInterval(() => {
     if (checkLibraryLoaded()) {
-        console.log("Html5Qrcode library loaded successfully!");
+        console.log("✅ Html5Qrcode library loaded successfully!");
         clearInterval(libraryCheckInterval);
     }
 }, 500);
 
 // Test library loading
 setTimeout(() => {
-    try {
-        if (checkLibraryLoaded()) {
-            console.log("Html5Qrcode library loaded successfully");
-            const Html5QrcodeClass = window.Html5Qrcode || Html5Qrcode;
-            const testInstance = new Html5QrcodeClass("reader");
-            console.log("Test instance created successfully");
-        } else {
-            console.error("Html5Qrcode library not loaded after 5 seconds");
-            throw new Error("QR Code library failed to load");
-        }
-    } catch (e) {
-        console.error("Error testing Html5Qrcode:", e);
-        // Show user-friendly error
-        setTimeout(() => {
-            notify("QR Code scanner failed to load. Please refresh the page and try again.", "error");
-        }, 1000);
+    if (checkLibraryLoaded()) {
+        console.log("✅ Library ready for use");
+    } else {
+        console.error("❌ Html5Qrcode library failed to load");
+        notify("QR Code scanner failed to load. Please refresh the page.", "error");
     }
-}, 2000);
+}, 3000);
 
 function notify(msg,type="success"){
 alertBox.textContent=msg;
@@ -603,7 +537,17 @@ if(isScanning){
     try {
         // Check if library is available
         if (!checkLibraryLoaded()) {
-            throw new Error("QR Code library not loaded. Please refresh the page and try again.");
+            console.log("Library not loaded, waiting and retrying...");
+            notify("Scanner loading, please wait...", "warning");
+            setTimeout(() => {
+                if (checkLibraryLoaded()) {
+                    console.log("Library now loaded, retrying scan...");
+                    document.getElementById("scanBtn").click(); // Auto-retry
+                } else {
+                    notify("Scanner failed to load. Please refresh the page.", "error");
+                }
+            }, 3000);
+            return;
         }
 
         const Html5QrcodeClass = window.Html5Qrcode || Html5Qrcode;
@@ -637,12 +581,17 @@ if(isScanning){
         notify("Camera started - point at QR code", "success");
     } catch(error) {
         console.error("Error starting scanner:", error);
-        notify("Error starting camera: " + error.message, "error");
+        notify("Camera error: " + error.message + ". Use manual entry instead.", "error");
         // Reset button state
         document.getElementById("scanBtn").textContent="📱 Scan QR Code";
         document.getElementById("scanBtn").className="btn btn-outline";
         document.getElementById("scanner-container").classList.remove("active");
         isScanning = false;
+        
+        // Focus on manual input as fallback
+        setTimeout(() => {
+            document.getElementById("rollInput").focus();
+        }, 1000);
     }
 }
 };
