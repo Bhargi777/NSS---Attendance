@@ -106,6 +106,7 @@
         }
 
         // --- SUBMIT DATA TO GOOGLE FORM ---
+        // --- SUBMIT DATA TO GOOGLE FORM ---
         async function submitAttendance(roll = null) {
             const rollVal = roll || document.getElementById('rollInput').value.trim().toUpperCase();
             const hoursVal = document.getElementById('hoursInput').value;
@@ -116,19 +117,17 @@
             showStatus("Submitting...", "success");
             btn.classList.add('loading');
             
-            // Build the form data
-            const formData = new FormData();
-            formData.append(ENTRY_ROLL, rollVal);
-            formData.append(ENTRY_HOURS, hoursVal);
+            // Build the URL with query parameters manually
+            // This is often more reliable than FormData for Google Forms
+            const submitUrl = `https://docs.google.com/forms/d/e/${FORM_ID}/formResponse?` + 
+                              `${ENTRY_ROLL}=${encodeURIComponent(rollVal)}&` + 
+                              `${ENTRY_HOURS}=${encodeURIComponent(hoursVal)}&` + 
+                              `submit=Submit`;
 
             try {
-                // IMPORTANT: mode: 'no-cors' tells the browser "Don't expect a response".
-                // Google Forms doesn't send a standard success message to external sites.
-                // We assume success if the network request doesn't fail.
-                await fetch(FORM_URL, {
-                    method: "POST",
-                    mode: "no-cors",
-                    body: formData
+                await fetch(submitUrl, {
+                    method: "GET", // Changed to GET request
+                    mode: "no-cors"
                 });
 
                 showStatus(`✅ Marked: ${rollVal} (${hoursVal} hrs)`, "success");
@@ -141,7 +140,6 @@
                 btn.classList.remove('loading');
             }
         }
-
         function showStatus(msg, type) {
             statusBox.textContent = msg;
             statusBox.className = `status ${type}`;
