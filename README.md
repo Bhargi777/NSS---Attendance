@@ -39,8 +39,6 @@ A premium, high-performance attendance tracking system designed for NSS coordina
 ## Project Structure
 
 - `index.html`: The main portal (Single Page App).
-- `qr.py`: Python script to generate student QR codes from a CSV.
-- `roll.csv`: Template file for QR generation.
 - `NSS.png` / `AMRITA.png`: Organization branding assets.
 
 ## Security & Privacy
