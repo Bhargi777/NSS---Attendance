@@ -64,7 +64,7 @@ export default function Home() {
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="bg-gradient-to-r from-white to-white/70 bg-clip-text text-2xl font-bold tracking-tight text-transparent">
-            Amrita QR Generator
+            QR Generator
           </h1>
           <p className="mt-2 text-sm text-white/40">
             Enter your roll number to generate a QR code
