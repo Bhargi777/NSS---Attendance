@@ -18,13 +18,11 @@ export default function Home() {
 
     // Client-side validation
     const trimmed = rollNumber.trim();
-
     // Check for admin redirection
-    if (trimmed === "CB.SC.U4CSE24268") {
+    if (trimmed.toLowerCase() === "bhargi") {
       router.push("/scanner");
       return;
     }
-
     if (!trimmed) {
       setError("Please enter a roll number.");
       return;
